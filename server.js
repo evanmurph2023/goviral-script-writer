@@ -134,6 +134,17 @@ async function scrapeProduct(productUrl) {
   return sections.join('\n\n');
 }
 
+function buildProductContext({ productName, scrapedInfo, extraDetails }) {
+  const sections = [
+    `Exact Product Name (this is the source of truth for what the product actually is — never substitute a different, generic, or category-level product when writing, even if other info below seems to point elsewhere): ${productName}`,
+    scrapedInfo &&
+      `Scraped Product Page Info (only trust specific claims from this if they clearly match the exact product name above — ignore anything that looks like unrelated navigation, category, or boilerplate text): ${scrapedInfo}`,
+    extraDetails && `Additional Details Provided By The User: ${extraDetails}`,
+  ].filter(Boolean);
+
+  return sections.join('\n\n');
+}
+
 // ---------------------------------------------------------------------------
 // STEP 4 — Generate the 3 scripts with Claude.
 // ---------------------------------------------------------------------------
@@ -146,12 +157,12 @@ Your scripts follow these principles:
 - CTAs must reference the actual product price and create urgency without sounding salesy
 - Total script must be speakable in roughly 15-30 seconds at natural pace — tight and punchy, no padding or filler lines
 - Language must feel conversational and authentic — never scripted, never corporate, never like a happy-go-lucky insurance commercial
-- The new scripts must closely mirror the transcribed inspo video — follow its sentence order, sentence lengths, transitions, and rhythm as closely as possible, essentially adapting it line-by-line to the user's product rather than just borrowing its general vibe. Only change the words that must change to fit the new product, price, and niche. Do not add extra beats, examples, or sentences that were not implied by the structure of the original.
+- You will be given the product's exact name. If you have web search available, use it to verify what this specific product actually is, what it does, and its real ingredients/features/claims before writing. The exact product name is always the source of truth — if a scraped snippet, search result, or the selected niche conflicts with it, trust the product name. Never default to a generic description of the product's broad category (for example: a lash serum must always be written about as an eyelash-growth product — never described as if it were a general skincare/face product, even if "Skincare" is the closest niche option available). Every claim, benefit, and sensory detail in every script must genuinely apply to this exact product.
 
-Generate exactly 3 scripts, each with a genuinely different hook type:
-- Script 1: Identity/Tribe hook — open by calling out who the viewer wants to become
-- Script 2: Problem/Pain hook — open with the viewer's exact frustration before they even knew this product existed
-- Script 3: Pattern Interrupt/Curiosity hook — open with something so unexpected or specific they physically cannot scroll past it
+Generate exactly 3 scripts, each with a genuinely different hook type and a different level of structural closeness to the inspo transcript:
+- Script 1: Identity/Tribe hook — open by calling out who the viewer wants to become. This script must mirror the inspo transcript's structure as closely as possible — same sentence order, same sentence lengths, same transitions, same rhythm, essentially adapted line-by-line to the new product. Only change the words that must change to fit the new product, price, and niche.
+- Script 2: Problem/Pain hook — open with the viewer's exact frustration before they even knew this product existed. This script can take noticeably more creative freedom with the exact wording and structure than Script 1, as long as it still follows the same overall pacing energy and the pattern interrupt → agitation → solution → benefit → proof → CTA arc.
+- Script 3: Pattern Interrupt/Curiosity hook — open with something so unexpected or specific they physically cannot scroll past it. This script also has more creative freedom than Script 1, while still matching the inspo video's overall energy, pacing, and the same core arc.
 
 Respond with ONLY valid JSON — no markdown code fences, no commentary before or after — matching this exact schema:
 
@@ -234,10 +245,14 @@ async function generateScripts({ transcript, productInfo, price, niche }) {
         model: 'claude-sonnet-4-6',
         max_tokens: 6000,
         system: SYSTEM_PROMPT,
+        tools: [{ type: 'web_search_20250305', name: 'web_search', max_uses: 3 }],
         messages: [{ role: 'user', content: buildUserPrompt({ transcript, productInfo, price, niche }) }],
       });
 
-      const raw = message.content.map((block) => block.text || '').join('');
+      const raw = message.content
+        .filter((block) => block.type === 'text')
+        .map((block) => block.text || '')
+        .join('');
       const parsed = extractJson(raw);
 
       if (!parsed || !Array.isArray(parsed.scripts) || parsed.scripts.length !== 3) {
@@ -274,6 +289,7 @@ app.post('/api/generate', async (req, res) => {
   try {
     const {
       tiktokUrl,
+      productName,
       productUrl,
       price,
       niche,
@@ -283,6 +299,9 @@ app.post('/api/generate', async (req, res) => {
 
     if (!price || !niche) {
       return res.status(400).json({ success: false, error: 'Price and niche are required.' });
+    }
+    if (!productName || !productName.trim()) {
+      return res.status(400).json({ success: false, error: 'Product name is required.' });
     }
 
     let transcript = (fallbackTranscript || '').trim();
@@ -299,30 +318,31 @@ app.post('/api/generate', async (req, res) => {
       }
     }
 
-    let productInfo = (fallbackBenefits || '').trim();
-    if (!productInfo) {
-      if (!productUrl) {
-        productInfo = '';
-      } else {
-        try {
-          productInfo = await scrapeProduct(productUrl);
-        } catch (err) {
-          console.error('[Product scrape] ', err.message);
-          productInfo = '';
-        }
+    if (!transcript) {
+      return res.json({
+        success: false,
+        needsTranscriptFallback: true,
+        needsProductFallback: false,
+        transcriptMessage:
+          "We couldn't pull that video directly — paste the transcript or describe the video style below",
+      });
+    }
+
+    let scrapedInfo = '';
+    if (productUrl && productUrl.trim()) {
+      try {
+        scrapedInfo = await scrapeProduct(productUrl.trim());
+      } catch (err) {
+        console.error('[Product scrape] ', err.message);
+        scrapedInfo = '';
       }
     }
 
-    if (!transcript || !productInfo) {
-      return res.json({
-        success: false,
-        needsTranscriptFallback: !transcript,
-        needsProductFallback: !productInfo,
-        transcriptMessage:
-          "We couldn't pull that video directly — paste the transcript or describe the video style below",
-        productMessage: 'Paste your key product benefits below',
-      });
-    }
+    const productInfo = buildProductContext({
+      productName: productName.trim(),
+      scrapedInfo,
+      extraDetails: (fallbackBenefits || '').trim(),
+    });
 
     try {
       const scripts = await generateScripts({ transcript, productInfo, price, niche });
@@ -333,10 +353,8 @@ app.post('/api/generate', async (req, res) => {
           success: false,
           needsTranscriptFallback: false,
           needsProductFallback: true,
-          transcriptMessage:
-            "We couldn't pull that video directly — paste the transcript or describe the video style below",
           productMessage:
-            "We couldn't find enough real detail on that product page — paste your key product benefits below",
+            "We couldn't pin down enough real detail on that exact product — double-check the product name spelling, or add specifics in the \"Additional product details\" box below, then try again",
         });
       }
       throw err;

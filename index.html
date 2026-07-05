@@ -194,6 +194,11 @@
     color: var(--text-primary);
   }
 
+  .field-optional {
+    font-weight: 400;
+    color: var(--text-secondary);
+  }
+
   .field-helper {
     font-size: 12.5px;
     color: var(--text-secondary);
@@ -662,13 +667,19 @@
         </div>
 
         <div class="field">
-          <label for="productUrl">Product page URL</label>
-          <input type="url" id="productUrl" placeholder="Paste your product page URL (TikTok Shop, Amazon, Shopify, etc.)" />
+          <label for="productName">Product name</label>
+          <input type="text" id="productName" placeholder="e.g. COSRX Advanced Snail 96 Mucin Power Essence" />
+          <div class="field-helper">Use the full, specific name — we'll search the web to confirm exactly what this product is before writing, instead of relying on a single link</div>
         </div>
 
-        <div id="productFallbackBox" class="fallback-box">
-          <div class="fallback-msg" id="productFallbackMsg">Paste your key product benefits below</div>
-          <textarea id="fallbackBenefits" placeholder="List the product's key benefits, ingredients/features, and any claims..."></textarea>
+        <div class="field">
+          <label for="productUrl">Product page URL <span class="field-optional">(optional)</span></label>
+          <input type="url" id="productUrl" placeholder="Paste your product page URL for extra detail (Amazon, Shopify, etc.)" />
+        </div>
+
+        <div class="field">
+          <label for="fallbackBenefits">Additional product details <span class="field-optional">(optional)</span></label>
+          <textarea id="fallbackBenefits" placeholder="Any specific ingredients, claims, or details you want included..."></textarea>
         </div>
 
         <div class="form-grid">
@@ -758,8 +769,6 @@
   const transcriptFallbackMsg = document.getElementById('transcriptFallbackMsg');
   const fallbackTranscript = document.getElementById('fallbackTranscript');
 
-  const productFallbackBox = document.getElementById('productFallbackBox');
-  const productFallbackMsg = document.getElementById('productFallbackMsg');
   const fallbackBenefits = document.getElementById('fallbackBenefits');
 
   function setLoading(isLoading) {
@@ -910,6 +919,7 @@
     hideError();
 
     const tiktokUrl = document.getElementById('tiktokUrl').value.trim();
+    const productName = document.getElementById('productName').value.trim();
     const productUrl = document.getElementById('productUrl').value.trim();
     const price = document.getElementById('price').value.trim();
     const niche = document.getElementById('niche').value;
@@ -924,8 +934,8 @@
       showError('Paste a TikTok URL, or use the fallback field to describe the video.');
       return;
     }
-    if (!productUrl && !fbBenefits) {
-      showError('Paste a product URL, or use the fallback field to list your product benefits.');
+    if (!productName) {
+      showError('Please enter the full product name before generating.');
       return;
     }
 
@@ -938,6 +948,7 @@
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
           tiktokUrl: tiktokUrl,
+          productName: productName,
           productUrl: productUrl,
           price: price,
           niche: niche,
@@ -954,10 +965,11 @@
         if (data.needsTranscriptFallback) {
           showFallback(transcriptFallbackBox, transcriptFallbackMsg, data.transcriptMessage);
         }
-        if (data.needsProductFallback) {
-          showFallback(productFallbackBox, productFallbackMsg, data.productMessage);
-        }
-        showError('We need a bit more info before we can write your scripts — see the fields highlighted above, then hit generate again.');
+        showError(
+          data.needsProductFallback
+            ? data.productMessage
+            : "We need a bit more info before we can write your scripts — see the fields highlighted above, then hit generate again."
+        );
       } else {
         showError(data.error || 'Something went wrong generating your scripts. Please try again.');
       }
