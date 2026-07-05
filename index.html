@@ -102,6 +102,20 @@
   }
   .nav-link:hover { color: var(--text-primary); }
 
+  .nav-link.revealed {
+    color: #fff;
+    font-weight: 600;
+    background: var(--accent-red);
+    padding: 8px 14px;
+    border-radius: 999px;
+    transition: box-shadow var(--ease), transform var(--ease);
+  }
+  .nav-link.revealed:hover {
+    color: #fff;
+    box-shadow: 0 6px 18px rgba(255,54,54,0.28);
+    transform: translateY(-1px);
+  }
+
   /* ---------- Hero ---------- */
   .hero {
     position: relative;
@@ -554,6 +568,16 @@
   .copy-btn:hover { border-color: var(--accent-red); }
   .copy-btn.copied { color: var(--success-green); border-color: rgba(34,197,94,0.4); }
 
+  .film-nudge {
+    display: block;
+    text-align: center;
+    font-size: 12.5px;
+    font-weight: 600;
+    color: var(--accent-red);
+    transition: opacity var(--ease);
+  }
+  .film-nudge:hover { opacity: 0.8; }
+
   /* ---------- Post-generation CTA ---------- */
   .post-gen-cta {
     max-width: 560px;
@@ -591,10 +615,16 @@
     padding: 17px 34px;
     border-radius: var(--radius-btn);
     transition: box-shadow var(--ease), transform var(--ease);
+    animation: ctaPulse 2.4s ease-in-out infinite;
   }
   .btn-conversion:hover {
     box-shadow: 0 8px 28px rgba(255,54,54,0.22);
     transform: translateY(-1px);
+    animation-play-state: paused;
+  }
+  @keyframes ctaPulse {
+    0%, 100% { box-shadow: 0 0 0 0 rgba(255,54,54,0); }
+    50% { box-shadow: 0 0 0 10px rgba(255,54,54,0.12); }
   }
 
   /* ---------- Footer ---------- */
@@ -899,6 +929,12 @@
     });
     card.appendChild(copyBtn);
 
+    const filmNudge = el('a', { className: 'film-nudge', text: 'Ready to film this? Get it edited free →' });
+    filmNudge.href = 'https://govirall.now/speed-up.html';
+    filmNudge.target = '_blank';
+    filmNudge.rel = 'noopener';
+    card.appendChild(filmNudge);
+
     return card;
   }
 
@@ -910,6 +946,7 @@
     transcriptText.textContent = transcript || '';
     outputSection.hidden = false;
     navEditLink.hidden = false;
+    navEditLink.classList.add('revealed');
     footerEditLink.hidden = false;
     outputSection.scrollIntoView({ behavior: 'smooth', block: 'start' });
   }
