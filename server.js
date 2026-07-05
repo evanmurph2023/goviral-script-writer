@@ -216,22 +216,39 @@ function extractJson(text) {
   return null;
 }
 
+const sleep = (ms) => new Promise((resolve) => setTimeout(resolve, ms));
+
 async function generateScripts({ transcript, productInfo, price, niche }) {
-  const message = await anthropic.messages.create({
-    model: 'claude-sonnet-4-6',
-    max_tokens: 4000,
-    system: SYSTEM_PROMPT,
-    messages: [{ role: 'user', content: buildUserPrompt({ transcript, productInfo, price, niche }) }],
-  });
+  const maxAttempts = 3;
+  let lastErr;
 
-  const raw = message.content.map((block) => block.text || '').join('');
-  const parsed = extractJson(raw);
+  for (let attempt = 1; attempt <= maxAttempts; attempt++) {
+    try {
+      const message = await anthropic.messages.create({
+        model: 'claude-sonnet-4-6',
+        max_tokens: 6000,
+        system: SYSTEM_PROMPT,
+        messages: [{ role: 'user', content: buildUserPrompt({ transcript, productInfo, price, niche }) }],
+      });
 
-  if (!parsed || !Array.isArray(parsed.scripts) || parsed.scripts.length !== 3) {
-    throw new Error('Unexpected response format from the script generator.');
+      const raw = message.content.map((block) => block.text || '').join('');
+      const parsed = extractJson(raw);
+
+      if (!parsed || !Array.isArray(parsed.scripts) || parsed.scripts.length !== 3) {
+        throw new Error(
+          `Unexpected response format from the script generator (stop_reason: ${message.stop_reason}).`
+        );
+      }
+
+      return parsed.scripts;
+    } catch (err) {
+      lastErr = err;
+      console.error(`[Claude attempt ${attempt}/${maxAttempts}] status=${err.status || 'n/a'} message=${err.message}`);
+      if (attempt < maxAttempts) await sleep(1000 * attempt);
+    }
   }
 
-  return parsed.scripts;
+  throw lastErr;
 }
 
 // ---------------------------------------------------------------------------
