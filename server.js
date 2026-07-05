@@ -152,6 +152,7 @@ Your scripts follow these principles:
 - Never state a specific price or dollar amount anywhere in the script (hook, body, or CTA) — stating exact prices in organic TikTok Shop content risks a policy violation for the creator. Build CTA urgency the way real high-performing TikTok Shop videos actually do: reference the platform's real UI (e.g. "tap the orange cart", "it's linked right there", "swipe up", "shop now button"), scarcity/social proof ("it keeps selling out", "stock is moving"), or a casual imperative — never a manufactured "it's $X" line. Mirror the inspo transcript's own CTA phrasing and energy as closely as possible; if the transcript's own closing line doesn't mention a price either, that's the model to follow.
 - Total script must be speakable in roughly 15-30 seconds at natural pace — tight and punchy, no padding or filler lines
 - Language must feel conversational and authentic — never scripted, never corporate, never like a happy-go-lucky insurance commercial
+- Never use the em dash character (—) anywhere in the output, in any field. Use a period, comma, or "and" instead. Em dashes are a dead giveaway of AI-written text and are strictly forbidden.
 - You will be given the product's exact name. If you have web search available, use it to verify what this specific product actually is, what it does, and its real ingredients/features/claims before writing. The exact product name is always the source of truth — if a scraped snippet, search result, or the selected niche conflicts with it, trust the product name. Never default to a generic description of the product's broad category (for example: a lash serum must always be written about as an eyelash-growth product — never described as if it were a general skincare/face product, even if "Skincare" is the closest niche option available). Every claim, benefit, and sensory detail in every script must genuinely apply to this exact product.
 
 Generate exactly 3 scripts, each with a genuinely different hook type and a different level of structural closeness to the inspo transcript:
@@ -171,7 +172,7 @@ Respond with ONLY valid JSON — no markdown code fences, no commentary before o
       "cta": string (the [CTA] section — urgency-based close mirroring the inspo video's real CTA phrasing and the platform's actual UI, e.g. "tap the orange cart" — never a specific price or dollar amount),
       "speakTimeSeconds": number (estimated seconds to speak the full script at natural pace, between 15 and 30),
       "overlays": [ { "time": "0:04", "text": "what overlay text/graphic appears and why" } ] (3 to 4 items, timed across the script),
-      "visualHook": string (one specific sentence describing exactly what to do in the first 2 seconds before a single word is spoken — wardrobe, prop, background, action — built on contrast, authority signals, and relatability cues that stop the scroll before words do),
+      "visualHook": string (ONE short, plain, casual instruction for what to do in the first 2 seconds before speaking, no more than about 12 words, said like a friend giving quick direction, e.g. "Close-up of your bare lashes, no mascara" or "Hold the box up next to your face." Do not write a cinematic, technical, or overly descriptive paragraph.),
       "productionPointers": [string, string] (exactly 2 specific tips to make this video perform better, based on the product and niche)
     }
   ]
@@ -225,6 +226,21 @@ function extractJson(text) {
 
 const sleep = (ms) => new Promise((resolve) => setTimeout(resolve, ms));
 
+// Backstop in case the model still slips one in despite the system prompt rule.
+function stripEmDashes(scripts) {
+  const clean = (s) => (typeof s === 'string' ? s.replace(/\s*—\s*/g, ', ').replace(/,\s*,/g, ',') : s);
+  return scripts.map((s) => ({
+    ...s,
+    hookTypeLabel: clean(s.hookTypeLabel),
+    hook: clean(s.hook),
+    body: clean(s.body),
+    cta: clean(s.cta),
+    visualHook: clean(s.visualHook),
+    productionPointers: Array.isArray(s.productionPointers) ? s.productionPointers.map(clean) : s.productionPointers,
+    overlays: Array.isArray(s.overlays) ? s.overlays.map((o) => ({ ...o, text: clean(o.text) })) : s.overlays,
+  }));
+}
+
 // Thrown when Claude declines to write scripts (e.g. the scraped product info
 // was garbage, not a real product description) instead of a transient failure.
 class BadProductInfoError extends Error {}
@@ -264,7 +280,7 @@ async function generateScripts({ transcript, productInfo, niche }) {
         );
       }
 
-      return parsed.scripts;
+      return stripEmDashes(parsed.scripts);
     } catch (err) {
       if (err instanceof BadProductInfoError) throw err;
       lastErr = err;
