@@ -171,7 +171,9 @@ Respond with ONLY valid JSON — no markdown code fences, no commentary before o
   ]
 }
 
-Return exactly 3 scripts in the array, in the order specified above. Output nothing but the JSON object.`;
+Return exactly 3 scripts in the array, in the order specified above. Output nothing but the JSON object.
+
+Critical formatting rule: the output must be strictly valid, parseable JSON. Every string value must be on a single logical line — escape any line breaks inside a string as \\n and escape any double quote characters inside a string as \\". Never include a raw, unescaped newline or unescaped quote character inside a string value.`;
 
 function buildUserPrompt({ transcript, productInfo, price, niche }) {
   return `INSPO VIDEO TRANSCRIPT (treat this as the template — mirror its exact structure, sentence order, and pacing as closely as possible, adapting it line-by-line to the product below rather than just taking inspiration from it):
@@ -235,6 +237,7 @@ async function generateScripts({ transcript, productInfo, price, niche }) {
       const parsed = extractJson(raw);
 
       if (!parsed || !Array.isArray(parsed.scripts) || parsed.scripts.length !== 3) {
+        console.error(`[Claude raw response, stop_reason=${message.stop_reason}]:`, raw.slice(0, 4000));
         throw new Error(
           `Unexpected response format from the script generator (stop_reason: ${message.stop_reason}).`
         );
