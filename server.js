@@ -100,10 +100,6 @@ async function scrapeProduct(productUrl) {
     $('meta[name="description"]').attr('content') ||
     $('meta[property="og:description"]').attr('content') ||
     '';
-  const priceMeta =
-    $('meta[property="product:price:amount"]').attr('content') ||
-    $('meta[property="og:price:amount"]').attr('content') ||
-    '';
   const headings = $('h1, h2')
     .map((i, el) => $(el).text().trim())
     .get()
@@ -121,7 +117,6 @@ async function scrapeProduct(productUrl) {
   const sections = [
     title && `Product Name/Title: ${title.trim()}`,
     description && `Description: ${description.trim()}`,
-    priceMeta && `Listed Price Signal: ${priceMeta}`,
     headings && `Key Headings: ${headings}`,
     bullets && `Bullet Points / Claims / Features: ${bullets}`,
     bodyText && `Page Copy Snippet: ${bodyText}`,
@@ -154,13 +149,13 @@ Your scripts follow these principles:
 - Hooks must trigger a pattern interrupt in the first 2 seconds — make the viewer stop scrolling before a single word is spoken
 - Every script must pull on one of these core psychological levers: identity (who does buying this make me?), aspirational tribe (what group does this let me belong to?), sexual companionship/attraction (does this make me more attractive?), nostalgia (does this connect to something deeply familiar?), or desire pairing (attach the product to something already pleasurable)
 - Script body follows: pattern interrupt hook → problem agitation → product as the solution → specific benefit with sensory detail → social proof signal (casual, not aggressive) → urgency-based CTA
-- CTAs must reference the actual product price and create urgency without sounding salesy
+- Never state a specific price or dollar amount anywhere in the script (hook, body, or CTA) — stating exact prices in organic TikTok Shop content risks a policy violation for the creator. Build CTA urgency the way real high-performing TikTok Shop videos actually do: reference the platform's real UI (e.g. "tap the orange cart", "it's linked right there", "swipe up", "shop now button"), scarcity/social proof ("it keeps selling out", "stock is moving"), or a casual imperative — never a manufactured "it's $X" line. Mirror the inspo transcript's own CTA phrasing and energy as closely as possible; if the transcript's own closing line doesn't mention a price either, that's the model to follow.
 - Total script must be speakable in roughly 15-30 seconds at natural pace — tight and punchy, no padding or filler lines
 - Language must feel conversational and authentic — never scripted, never corporate, never like a happy-go-lucky insurance commercial
 - You will be given the product's exact name. If you have web search available, use it to verify what this specific product actually is, what it does, and its real ingredients/features/claims before writing. The exact product name is always the source of truth — if a scraped snippet, search result, or the selected niche conflicts with it, trust the product name. Never default to a generic description of the product's broad category (for example: a lash serum must always be written about as an eyelash-growth product — never described as if it were a general skincare/face product, even if "Skincare" is the closest niche option available). Every claim, benefit, and sensory detail in every script must genuinely apply to this exact product.
 
 Generate exactly 3 scripts, each with a genuinely different hook type and a different level of structural closeness to the inspo transcript:
-- Script 1: Identity/Tribe hook — open by calling out who the viewer wants to become. This script must mirror the inspo transcript's structure as closely as possible — same sentence order, same sentence lengths, same transitions, same rhythm, essentially adapted line-by-line to the new product. Only change the words that must change to fit the new product, price, and niche.
+- Script 1: Identity/Tribe hook — open by calling out who the viewer wants to become. This script must mirror the inspo transcript's structure as closely as possible — same sentence order, same sentence lengths, same transitions, same rhythm, essentially adapted line-by-line to the new product. Only change the words that must change to fit the new product and niche.
 - Script 2: Problem/Pain hook — open with the viewer's exact frustration before they even knew this product existed. This script can take noticeably more creative freedom with the exact wording and structure than Script 1, as long as it still follows the same overall pacing energy and the pattern interrupt → agitation → solution → benefit → proof → CTA arc.
 - Script 3: Pattern Interrupt/Curiosity hook — open with something so unexpected or specific they physically cannot scroll past it. This script also has more creative freedom than Script 1, while still matching the inspo video's overall energy, pacing, and the same core arc.
 
@@ -173,7 +168,7 @@ Respond with ONLY valid JSON — no markdown code fences, no commentary before o
       "hookTypeLabel": string (e.g. "Identity / Tribe Hook"),
       "hook": string (the [HOOK] section — 1-3 sentences, the pattern-interrupt opener),
       "body": string (the [BODY] section — problem agitation, product as the solution, specific benefit with sensory detail, casual social proof),
-      "cta": string (the [CTA] section — urgency-based close that references the real product price),
+      "cta": string (the [CTA] section — urgency-based close mirroring the inspo video's real CTA phrasing and the platform's actual UI, e.g. "tap the orange cart" — never a specific price or dollar amount),
       "speakTimeSeconds": number (estimated seconds to speak the full script at natural pace, between 15 and 30),
       "overlays": [ { "time": "0:04", "text": "what overlay text/graphic appears and why" } ] (3 to 4 items, timed across the script),
       "visualHook": string (one specific sentence describing exactly what to do in the first 2 seconds before a single word is spoken — wardrobe, prop, background, action — built on contrast, authority signals, and relatability cues that stop the scroll before words do),
@@ -186,7 +181,7 @@ Return exactly 3 scripts in the array, in the order specified above. Output noth
 
 Critical formatting rule: the output must be strictly valid, parseable JSON. Every string value must be on a single logical line — escape any line breaks inside a string as \\n and escape any double quote characters inside a string as \\". Never include a raw, unescaped newline or unescaped quote character inside a string value.`;
 
-function buildUserPrompt({ transcript, productInfo, price, niche }) {
+function buildUserPrompt({ transcript, productInfo, niche }) {
   return `INSPO VIDEO TRANSCRIPT (treat this as the template — mirror its exact structure, sentence order, and pacing as closely as possible, adapting it line-by-line to the product below rather than just taking inspiration from it):
 """
 ${transcript}
@@ -197,7 +192,6 @@ PRODUCT INFORMATION:
 ${productInfo}
 """
 
-PRODUCT PRICE: $${price}
 NICHE: ${niche}
 
 Write the 3 scripts now, following the system instructions exactly. Keep each script tight and short — do not pad it out longer than the transcript above. Respond with ONLY the JSON object described in the schema.`;
@@ -235,7 +229,7 @@ const sleep = (ms) => new Promise((resolve) => setTimeout(resolve, ms));
 // was garbage, not a real product description) instead of a transient failure.
 class BadProductInfoError extends Error {}
 
-async function generateScripts({ transcript, productInfo, price, niche }) {
+async function generateScripts({ transcript, productInfo, niche }) {
   const maxAttempts = 3;
   let lastErr;
 
@@ -246,7 +240,7 @@ async function generateScripts({ transcript, productInfo, price, niche }) {
         max_tokens: 6000,
         system: SYSTEM_PROMPT,
         tools: [{ type: 'web_search_20250305', name: 'web_search', max_uses: 3 }],
-        messages: [{ role: 'user', content: buildUserPrompt({ transcript, productInfo, price, niche }) }],
+        messages: [{ role: 'user', content: buildUserPrompt({ transcript, productInfo, niche }) }],
       });
 
       const raw = message.content
@@ -345,7 +339,7 @@ app.post('/api/generate', async (req, res) => {
     });
 
     try {
-      const scripts = await generateScripts({ transcript, productInfo, price, niche });
+      const scripts = await generateScripts({ transcript, productInfo, niche });
       return res.json({ success: true, scripts, transcript });
     } catch (err) {
       if (err instanceof BadProductInfoError) {
