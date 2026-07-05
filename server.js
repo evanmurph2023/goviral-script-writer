@@ -220,6 +220,10 @@ function extractJson(text) {
 
 const sleep = (ms) => new Promise((resolve) => setTimeout(resolve, ms));
 
+// Thrown when Claude declines to write scripts (e.g. the scraped product info
+// was garbage, not a real product description) instead of a transient failure.
+class BadProductInfoError extends Error {}
+
 async function generateScripts({ transcript, productInfo, price, niche }) {
   const maxAttempts = 3;
   let lastErr;
@@ -238,6 +242,14 @@ async function generateScripts({ transcript, productInfo, price, niche }) {
 
       if (!parsed || !Array.isArray(parsed.scripts) || parsed.scripts.length !== 3) {
         console.error(`[Claude raw response, stop_reason=${message.stop_reason}]:`, raw.slice(0, 4000));
+
+        if (!raw.trim().startsWith('{')) {
+          // Claude wrote prose instead of JSON — almost always means it declined
+          // because the scraped product info wasn't usable. Retrying with the
+          // same bad input would just fail identically, so bail out immediately.
+          throw new BadProductInfoError('The scraped product info was not usable.');
+        }
+
         throw new Error(
           `Unexpected response format from the script generator (stop_reason: ${message.stop_reason}).`
         );
@@ -245,6 +257,7 @@ async function generateScripts({ transcript, productInfo, price, niche }) {
 
       return parsed.scripts;
     } catch (err) {
+      if (err instanceof BadProductInfoError) throw err;
       lastErr = err;
       console.error(`[Claude attempt ${attempt}/${maxAttempts}] status=${err.status || 'n/a'} message=${err.message}`);
       if (attempt < maxAttempts) await sleep(1000 * attempt);
@@ -311,8 +324,23 @@ app.post('/api/generate', async (req, res) => {
       });
     }
 
-    const scripts = await generateScripts({ transcript, productInfo, price, niche });
-    return res.json({ success: true, scripts, transcript });
+    try {
+      const scripts = await generateScripts({ transcript, productInfo, price, niche });
+      return res.json({ success: true, scripts, transcript });
+    } catch (err) {
+      if (err instanceof BadProductInfoError) {
+        return res.json({
+          success: false,
+          needsTranscriptFallback: false,
+          needsProductFallback: true,
+          transcriptMessage:
+            "We couldn't pull that video directly — paste the transcript or describe the video style below",
+          productMessage:
+            "We couldn't find enough real detail on that product page — paste your key product benefits below",
+        });
+      }
+      throw err;
+    }
   } catch (err) {
     console.error('[Generate] ', err);
     return res.status(500).json({
