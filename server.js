@@ -164,6 +164,11 @@ Generate exactly 3 scripts, each with a genuinely different hook type and a diff
 - Script 2: Problem/Pain hook — open with the viewer's exact frustration before they even knew this product existed. This script can take noticeably more creative freedom with the exact wording and structure than Script 1, as long as it still follows the same overall pacing energy and the pattern interrupt → agitation → solution → benefit → proof → CTA arc.
 - Script 3: Pattern Interrupt/Curiosity hook — open with something so unexpected or specific they physically cannot scroll past it. This script also has more creative freedom than Script 1, while still matching the inspo video's overall energy, pacing, and the same core arc.
 
+You will also be given a VIDEO STYLE, which changes how the hook, body, and cta text, the visual hook, and the overlays must be written:
+- talking_head: the default. One creator speaks directly to camera the entire time, exactly as described above.
+- skit: write the hook, body, and cta as a short back-and-forth dialogue between two people. Every line must start with "PERSON 1:" or "PERSON 2:", separated by line breaks (escaped as \\n in the JSON string). Give Person 1 and Person 2 distinct, consistent roles across the whole script (for example, one skeptical and one convincing them, or one asking and one answering, or a customer and a friend). All of the psychological hook framework, pacing, and CTA rules still apply, just delivered as dialogue instead of a monologue. The visualHook and overlays must describe the setup for both people (who is where, what each is doing) instead of a single person's action.
+- faceless: the creator's face must never appear on camera and must never be referenced anywhere in the visualHook, overlays, or productionPointers (no "look at camera", "your face", "your expression", eye contact, or similar). The hook, body, and cta are still narrated by a single voiceover exactly like talking_head, but everything described in the visualHook, overlays, and productionPointers must be hands, product shots, screen recordings, text on screen, or b-roll footage only. Build every visual instruction around that constraint.
+
 Respond with ONLY valid JSON — no markdown code fences, no commentary before or after — matching this exact schema:
 
 {
@@ -176,7 +181,7 @@ Respond with ONLY valid JSON — no markdown code fences, no commentary before o
       "cta": string (the [CTA] section — urgency-based close mirroring the inspo video's real CTA phrasing and the platform's actual UI, e.g. "tap the orange cart" — never a specific price or dollar amount),
       "speakTimeSeconds": number (estimated seconds to speak the full script at natural pace, between 15 and 30),
       "overlays": [ { "time": "0:00", "type": "text_hook" | "visual", "text": "..." } ] (3 to 4 items total. Exactly ONE item has type "text_hook": it must be first, timed at 0:00-0:02, and its text is bold on-screen text that reinforces the spoken hook, word for word or nearly so. Every other item, 2 to 3 of them, has type "visual": a specific reference photo, image, or footage cutaway to show at that exact moment, directly matching whatever specific visual comparison, feature, ingredient, or result is being spoken right then. Example: if the line says "if your skin looks like this," the visual overlay is a close-up reference photo of that exact described condition. If a line names an ingredient, the visual overlay is a close-up of that ingredient or its packaging. If a line describes a result or transformation, the visual overlay is a photo of that result. Never make a "visual" item a generic text callout, price graphic, or arrow graphic; it must describe an actual image or footage cutaway tied precisely to the words being spoken at that timestamp.),
-      "visualHook": string (ONE short, plain, casual instruction for what to do in the first 2 seconds before speaking, no more than about 12 words, said like a friend giving quick direction, e.g. "Close-up of your bare lashes, no mascara" or "Hold the box up next to your face." When it fits naturally, lead with the actual result or finished look rather than an abstract prop shot; showing the outcome first is what stops the scroll hardest. Do not write a cinematic, technical, or overly descriptive paragraph.),
+      "visualHook": string (ONE short, plain, casual instruction describing what to visually show WHILE delivering the opening hook line, never a silent action before speaking; there must be zero dead air at the start of the video, so always phrase it starting with "While saying your first line, " followed by the specific action, e.g. "While saying your first line, zoom in close on your bare lashes, no mascara." or "While saying your first line, hold the box up next to your face." When it fits naturally, lead with the actual result or finished look rather than an abstract prop shot; showing the outcome first is what stops the scroll hardest. No more than about 18 words total. Do not write a cinematic, technical, or overly descriptive paragraph.),
       "productionPointers": [string, string] (exactly 2 specific tips to make this video perform better, based on the product and niche)
     }
   ]
@@ -186,7 +191,13 @@ Return exactly 3 scripts in the array, in the order specified above. Output noth
 
 Critical formatting rule: the output must be strictly valid, parseable JSON. Every string value must be on a single logical line — escape any line breaks inside a string as \\n and escape any double quote characters inside a string as \\". Never include a raw, unescaped newline or unescaped quote character inside a string value.`;
 
-function buildUserPrompt({ transcript, productInfo, niche }) {
+const VIDEO_STYLE_LABELS = {
+  talking_head: 'Talking Head (one person, direct to camera)',
+  skit: 'Skit (two people, dialogue)',
+  faceless: 'Faceless (no face ever on camera)',
+};
+
+function buildUserPrompt({ transcript, productInfo, niche, videoStyle }) {
   return `INSPO VIDEO TRANSCRIPT (treat this as the template — mirror its exact structure, sentence order, and pacing as closely as possible, adapting it line-by-line to the product below rather than just taking inspiration from it):
 """
 ${transcript}
@@ -198,8 +209,9 @@ ${productInfo}
 """
 
 NICHE: ${niche}
+VIDEO STYLE: ${videoStyle} — ${VIDEO_STYLE_LABELS[videoStyle] || videoStyle}
 
-Write the 3 scripts now, following the system instructions exactly. Keep each script tight and short — do not pad it out longer than the transcript above. Respond with ONLY the JSON object described in the schema.`;
+Write the 3 scripts now, following the system instructions exactly, including the video-style-specific formatting rules for "${videoStyle}". Keep each script tight and short — do not pad it out longer than the transcript above. Respond with ONLY the JSON object described in the schema.`;
 }
 
 function extractJson(text) {
@@ -264,7 +276,7 @@ function isValidScript(s) {
 // was garbage, not a real product description) instead of a transient failure.
 class BadProductInfoError extends Error {}
 
-async function generateScripts({ transcript, productInfo, niche }) {
+async function generateScripts({ transcript, productInfo, niche, videoStyle }) {
   const maxAttempts = 3;
   let lastErr;
 
@@ -275,7 +287,7 @@ async function generateScripts({ transcript, productInfo, niche }) {
         max_tokens: 6000,
         system: SYSTEM_PROMPT,
         tools: [{ type: 'web_search_20250305', name: 'web_search', max_uses: 3 }],
-        messages: [{ role: 'user', content: buildUserPrompt({ transcript, productInfo, niche }) }],
+        messages: [{ role: 'user', content: buildUserPrompt({ transcript, productInfo, niche, videoStyle }) }],
       });
 
       const raw = message.content
@@ -324,6 +336,7 @@ app.post('/api/generate', async (req, res) => {
       productUrl,
       price,
       niche,
+      videoStyle,
       fallbackTranscript,
       fallbackBenefits,
     } = req.body || {};
@@ -333,6 +346,9 @@ app.post('/api/generate', async (req, res) => {
     }
     if (!productName || !productName.trim()) {
       return res.status(400).json({ success: false, error: 'Product name is required.' });
+    }
+    if (!videoStyle || !['talking_head', 'skit', 'faceless'].includes(videoStyle)) {
+      return res.status(400).json({ success: false, error: 'A valid video style is required.' });
     }
 
     let transcript = (fallbackTranscript || '').trim();
@@ -376,7 +392,7 @@ app.post('/api/generate', async (req, res) => {
     });
 
     try {
-      const scripts = await generateScripts({ transcript, productInfo, niche });
+      const scripts = await generateScripts({ transcript, productInfo, niche, videoStyle });
       return res.json({ success: true, scripts, transcript });
     } catch (err) {
       if (err instanceof BadProductInfoError) {
