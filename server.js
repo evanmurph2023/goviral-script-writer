@@ -174,7 +174,7 @@ Respond with ONLY valid JSON — no markdown code fences, no commentary before o
       "body": string (the [BODY] section — problem agitation, product as the solution, specific benefit with sensory detail, casual social proof),
       "cta": string (the [CTA] section — urgency-based close mirroring the inspo video's real CTA phrasing and the platform's actual UI, e.g. "tap the orange cart" — never a specific price or dollar amount),
       "speakTimeSeconds": number (estimated seconds to speak the full script at natural pace, between 15 and 30),
-      "overlays": [ { "time": "0:04", "text": "what overlay text/graphic appears and why" } ] (3 to 4 items, timed across the script),
+      "overlays": [ { "time": "0:00", "type": "text_hook" | "visual", "text": "..." } ] (3 to 4 items total. Exactly ONE item has type "text_hook": it must be first, timed at 0:00-0:02, and its text is bold on-screen text that reinforces the spoken hook, word for word or nearly so. Every other item, 2 to 3 of them, has type "visual": a specific reference photo, image, or footage cutaway to show at that exact moment, directly matching whatever specific visual comparison, feature, ingredient, or result is being spoken right then. Example: if the line says "if your skin looks like this," the visual overlay is a close-up reference photo of that exact described condition. If a line names an ingredient, the visual overlay is a close-up of that ingredient or its packaging. If a line describes a result or transformation, the visual overlay is a photo of that result. Never make a "visual" item a generic text callout, price graphic, or arrow graphic; it must describe an actual image or footage cutaway tied precisely to the words being spoken at that timestamp.),
       "visualHook": string (ONE short, plain, casual instruction for what to do in the first 2 seconds before speaking, no more than about 12 words, said like a friend giving quick direction, e.g. "Close-up of your bare lashes, no mascara" or "Hold the box up next to your face." When it fits naturally, lead with the actual result or finished look rather than an abstract prop shot; showing the outcome first is what stops the scroll hardest. Do not write a cinematic, technical, or overly descriptive paragraph.),
       "productionPointers": [string, string] (exactly 2 specific tips to make this video perform better, based on the product and niche)
     }
@@ -244,6 +244,21 @@ function stripEmDashes(scripts) {
   }));
 }
 
+// Guards against Claude occasionally dropping a required field for one script
+// (e.g. omitting "hook") without breaking the JSON itself.
+function isValidScript(s) {
+  return Boolean(
+    s &&
+      typeof s.hook === 'string' && s.hook.trim() &&
+      typeof s.body === 'string' && s.body.trim() &&
+      typeof s.cta === 'string' && s.cta.trim() &&
+      typeof s.hookTypeLabel === 'string' && s.hookTypeLabel.trim() &&
+      typeof s.visualHook === 'string' && s.visualHook.trim() &&
+      Array.isArray(s.overlays) && s.overlays.length > 0 &&
+      Array.isArray(s.productionPointers) && s.productionPointers.length > 0
+  );
+}
+
 // Thrown when Claude declines to write scripts (e.g. the scraped product info
 // was garbage, not a real product description) instead of a transient failure.
 class BadProductInfoError extends Error {}
@@ -267,8 +282,10 @@ async function generateScripts({ transcript, productInfo, niche }) {
         .map((block) => block.text || '')
         .join('');
       const parsed = extractJson(raw);
+      const scriptsValid =
+        parsed && Array.isArray(parsed.scripts) && parsed.scripts.length === 3 && parsed.scripts.every(isValidScript);
 
-      if (!parsed || !Array.isArray(parsed.scripts) || parsed.scripts.length !== 3) {
+      if (!scriptsValid) {
         console.error(`[Claude raw response, stop_reason=${message.stop_reason}]:`, raw.slice(0, 4000));
 
         if (!raw.trim().startsWith('{')) {
