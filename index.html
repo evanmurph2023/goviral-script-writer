@@ -907,6 +907,46 @@
     return node;
   }
 
+  function buildCopyText(script) {
+    const lines = [];
+    lines.push((script.hookTypeLabel || 'Script') + '  •  ~' + (script.speakTimeSeconds || '--') + 's');
+    lines.push('');
+
+    if (script.visualHook) {
+      lines.push('VISUAL HOOK');
+      lines.push(script.visualHook);
+      lines.push('');
+    }
+
+    lines.push('[HOOK]');
+    lines.push(script.hook || '');
+    lines.push('');
+    lines.push('[BODY]');
+    lines.push(script.body || '');
+    lines.push('');
+    lines.push('[CTA]');
+    lines.push(script.cta || '');
+
+    if (Array.isArray(script.overlays) && script.overlays.length) {
+      lines.push('');
+      lines.push('OVERLAY SUGGESTIONS');
+      script.overlays.forEach(function (o) {
+        const tag = o.type === 'text_hook' ? 'Text Hook' : 'Visual';
+        lines.push('[' + (o.time || '') + '] (' + tag + ') ' + (o.text || ''));
+      });
+    }
+
+    if (Array.isArray(script.productionPointers) && script.productionPointers.length) {
+      lines.push('');
+      lines.push('PRODUCTION TIPS');
+      script.productionPointers.forEach(function (p) {
+        lines.push('- ' + p);
+      });
+    }
+
+    return lines.join('\n');
+  }
+
   function buildScriptCard(script, index) {
     const card = el('div', { className: 'script-card' });
     card.style.animationDelay = (index * 120) + 'ms';
@@ -973,7 +1013,7 @@
     const copyBtn = el('button', { className: 'copy-btn', text: 'Copy Script' });
     copyBtn.type = 'button';
     copyBtn.addEventListener('click', function () {
-      const full = '[HOOK]\\n' + (script.hook || '') + '\\n\\n[BODY]\\n' + (script.body || '') + '\\n\\n[CTA]\\n' + (script.cta || '');
+      const full = buildCopyText(script);
 
       function markCopied() {
         copyBtn.textContent = '✓ Copied';
