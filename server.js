@@ -277,19 +277,22 @@ function isValidScript(s) {
 // was garbage, not a real product description) instead of a transient failure.
 class BadProductInfoError extends Error {}
 
-async function generateScripts({ transcript, productInfo, niche, videoStyle }) {
+async function generateScripts({ transcript, productInfo, niche, videoStyle, useWebSearch }) {
   const maxAttempts = 3;
   let lastErr;
 
   for (let attempt = 1; attempt <= maxAttempts; attempt++) {
     try {
-      const message = await anthropic.messages.create({
+      const requestOptions = {
         model: 'claude-sonnet-4-6',
         max_tokens: 6000,
         system: SYSTEM_PROMPT,
-        tools: [{ type: 'web_search_20250305', name: 'web_search', max_uses: 3 }],
         messages: [{ role: 'user', content: buildUserPrompt({ transcript, productInfo, niche, videoStyle }) }],
-      });
+      };
+      if (useWebSearch) {
+        requestOptions.tools = [{ type: 'web_search_20250305', name: 'web_search', max_uses: 2 }];
+      }
+      const message = await anthropic.messages.create(requestOptions);
 
       const raw = message.content
         .filter((block) => block.type === 'text')
@@ -378,7 +381,7 @@ async function reviseScript({ script, revisionNote }) {
         model: 'claude-sonnet-4-6',
         max_tokens: 3000,
         system: REVISION_SYSTEM_PROMPT,
-        tools: [{ type: 'web_search_20250305', name: 'web_search', max_uses: 2 }],
+        tools: [{ type: 'web_search_20250305', name: 'web_search', max_uses: 1 }],
         messages: [{ role: 'user', content: buildRevisionPrompt({ script, revisionNote }) }],
       });
 
@@ -430,19 +433,32 @@ app.post('/api/generate', async (req, res) => {
       return res.status(400).json({ success: false, error: 'A valid video style is required.' });
     }
 
-    let transcript = (fallbackTranscript || '').trim();
-    if (!transcript) {
-      if (!tiktokUrl) {
-        transcript = '';
-      } else {
-        try {
-          transcript = await getTranscriptFromTikTok(tiktokUrl);
-        } catch (err) {
-          console.error('[TikTok/Whisper] ', err.message);
-          transcript = '';
-        }
+    // Run the video transcription and product page scrape concurrently — they
+    // don't depend on each other, and were previously running one after the
+    // other for no reason, adding several seconds of dead wait time.
+    const transcriptPromise = (async () => {
+      const fb = (fallbackTranscript || '').trim();
+      if (fb) return fb;
+      if (!tiktokUrl) return '';
+      try {
+        return await getTranscriptFromTikTok(tiktokUrl);
+      } catch (err) {
+        console.error('[TikTok/Whisper] ', err.message);
+        return '';
       }
-    }
+    })();
+
+    const scrapePromise = (async () => {
+      if (!productUrl || !productUrl.trim()) return '';
+      try {
+        return await scrapeProduct(productUrl.trim());
+      } catch (err) {
+        console.error('[Product scrape] ', err.message);
+        return '';
+      }
+    })();
+
+    const [transcript, scrapedInfo] = await Promise.all([transcriptPromise, scrapePromise]);
 
     if (!transcript) {
       return res.json({
@@ -454,24 +470,26 @@ app.post('/api/generate', async (req, res) => {
       });
     }
 
-    let scrapedInfo = '';
-    if (productUrl && productUrl.trim()) {
-      try {
-        scrapedInfo = await scrapeProduct(productUrl.trim());
-      } catch (err) {
-        console.error('[Product scrape] ', err.message);
-        scrapedInfo = '';
-      }
-    }
-
     const productInfo = buildProductContext({
       productName: productName.trim(),
       scrapedInfo,
       extraDetails: (fallbackBenefits || '').trim(),
     });
 
+    // Skip the web search tool when we already have solid product info to
+    // work with — it only needs to fill gaps, and skipping it when there's
+    // nothing to fill saves several seconds of unnecessary search round-trips.
+    const hasSubstantialProductInfo =
+      Boolean(scrapedInfo && scrapedInfo.trim()) || (fallbackBenefits || '').trim().length > 20;
+
     try {
-      const scripts = await generateScripts({ transcript, productInfo, niche, videoStyle });
+      const scripts = await generateScripts({
+        transcript,
+        productInfo,
+        niche,
+        videoStyle,
+        useWebSearch: !hasSubstantialProductInfo,
+      });
       return res.json({ success: true, scripts, transcript });
     } catch (err) {
       if (err instanceof BadProductInfoError) {
