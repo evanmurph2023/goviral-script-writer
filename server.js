@@ -327,6 +327,84 @@ async function generateScripts({ transcript, productInfo, niche, videoStyle }) {
 }
 
 // ---------------------------------------------------------------------------
+// STEP 5 — Revise a single already-generated script based on specific feedback.
+// ---------------------------------------------------------------------------
+const REVISION_SYSTEM_PROMPT = `You are revising one existing TikTok Shop affiliate script based on specific feedback from the creator.
+
+Your job: apply ONLY the requested change, and preserve everything else about the script that already works — its structure, its specific claims, its length, its overall message. Do not rewrite it from scratch. Do not undo anything that the feedback didn't ask you to change.
+
+All of these rules still apply to the revised version, with no exceptions:
+- Never use the em dash character (—) anywhere in the output, in any field. Use a period, comma, or "and" instead.
+- Never use these words or phrases anywhere in the output: delve, leverage, utilize, harness, streamline, underscore, navigate, elevate, empower, showcase, showcasing, boasts, pivotal, robust, seamless, cutting-edge, game-changer, groundbreaking, vibrant, renowned, multifaceted, meticulous, intricate, paramount, noteworthy, landscape, realm, tapestry, synergy, ecosystem, journey, testament, furthermore, moreover, "it's important to note", "in today's world", "at the end of the day".
+- Never state a specific price or dollar amount anywhere in the script.
+- Never repeat a long or formal product name multiple times; a real person says it once at most, then just says "this" or "it".
+- Language must sound like a real person leaving a voice note for a friend, not a script.
+- The visualHook must start with "While saying your first line, " followed by a specific, short action, no more than about 18 words.
+- Exactly one overlay has type "text_hook" (always first, timed at 0:00), and every other overlay has type "visual" and describes a specific reference photo, image, or footage cutaway tied precisely to what's being said at that moment, never a generic text callout.
+
+Respond with ONLY valid JSON matching this exact schema, no markdown code fences, no commentary before or after:
+
+{
+  "hookType": "identity" | "problem" | "curiosity",
+  "hookTypeLabel": string,
+  "hook": string,
+  "body": string,
+  "cta": string,
+  "speakTimeSeconds": number,
+  "overlays": [ { "time": "0:00", "type": "text_hook" | "visual", "text": "..." } ],
+  "visualHook": string,
+  "productionPointers": [string, string]
+}
+
+Output nothing but the JSON object.`;
+
+function buildRevisionPrompt({ script, revisionNote }) {
+  return `ORIGINAL SCRIPT (as JSON):
+${JSON.stringify(script)}
+
+REQUESTED CHANGE:
+"${revisionNote}"
+
+Apply this change and return the complete revised script as JSON, keeping everything else the same unless the change requires adjusting it too. Respond with ONLY the JSON object.`;
+}
+
+async function reviseScript({ script, revisionNote }) {
+  const maxAttempts = 3;
+  let lastErr;
+
+  for (let attempt = 1; attempt <= maxAttempts; attempt++) {
+    try {
+      const message = await anthropic.messages.create({
+        model: 'claude-sonnet-4-6',
+        max_tokens: 3000,
+        system: REVISION_SYSTEM_PROMPT,
+        tools: [{ type: 'web_search_20250305', name: 'web_search', max_uses: 2 }],
+        messages: [{ role: 'user', content: buildRevisionPrompt({ script, revisionNote }) }],
+      });
+
+      const raw = message.content
+        .filter((block) => block.type === 'text')
+        .map((block) => block.text || '')
+        .join('');
+      const parsed = extractJson(raw);
+
+      if (!isValidScript(parsed)) {
+        console.error(`[Revise raw response, stop_reason=${message.stop_reason}]:`, raw.slice(0, 4000));
+        throw new Error(`Unexpected response format from the revision (stop_reason: ${message.stop_reason}).`);
+      }
+
+      return stripEmDashes([parsed])[0];
+    } catch (err) {
+      lastErr = err;
+      console.error(`[Revise attempt ${attempt}/${maxAttempts}] status=${err.status || 'n/a'} message=${err.message}`);
+      if (attempt < maxAttempts) await sleep(1000 * attempt);
+    }
+  }
+
+  throw lastErr;
+}
+
+// ---------------------------------------------------------------------------
 // Route
 // ---------------------------------------------------------------------------
 app.post('/api/generate', async (req, res) => {
@@ -412,6 +490,27 @@ app.post('/api/generate', async (req, res) => {
     return res.status(500).json({
       success: false,
       error: 'Something went wrong generating your scripts. Please try again in a moment.',
+    });
+  }
+});
+
+app.post('/api/revise', async (req, res) => {
+  try {
+    const { script, revisionNote } = req.body || {};
+    if (!script || typeof script !== 'object') {
+      return res.status(400).json({ success: false, error: 'Original script is required.' });
+    }
+    if (!revisionNote || !revisionNote.trim()) {
+      return res.status(400).json({ success: false, error: 'Please describe what you want changed.' });
+    }
+
+    const revised = await reviseScript({ script, revisionNote: revisionNote.trim() });
+    return res.json({ success: true, script: revised });
+  } catch (err) {
+    console.error('[Revise] ', err);
+    return res.status(500).json({
+      success: false,
+      error: 'Something went wrong revising this script. Please try again.',
     });
   }
 });
