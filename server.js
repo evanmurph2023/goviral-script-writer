@@ -143,10 +143,7 @@ function buildProductContext({ productName, scrapedInfo, extraDetails }) {
 // ---------------------------------------------------------------------------
 // STEP 4 — Generate the 3 scripts with Claude.
 // ---------------------------------------------------------------------------
-const SYSTEM_PROMPT = `You are an expert TikTok Shop affiliate script writer trained on the buyer psychology framework of Dustin Davis, one of the top TikTok Shop educators. You understand that people do not buy products — they buy identity, status, belonging, attraction, and the resolution of deep biological desires.
-
-Your scripts follow these principles:
-- Hooks must trigger a pattern interrupt in the first 2 seconds — make the viewer stop scrolling before a single word is spoken
+const SCRIPT_PRINCIPLES = `- Hooks must trigger a pattern interrupt in the first 2 seconds — make the viewer stop scrolling before a single word is spoken
 - Every script must pull on one of these core psychological levers: identity (who does buying this make me?), aspirational tribe (what group does this let me belong to?), sexual companionship/attraction (does this make me more attractive?), nostalgia (does this connect to something deeply familiar?), or desire pairing (attach the product to something already pleasurable)
 - Script body follows: pattern interrupt hook → problem agitation → product as the solution → specific benefit with sensory detail → social proof signal (casual, not aggressive) → urgency-based CTA
 - Never state a specific price or dollar amount anywhere in the script (hook, body, or CTA) — stating exact prices in organic TikTok Shop content risks a policy violation for the creator. Build CTA urgency the way real high-performing TikTok Shop videos actually do: reference the platform's real UI (e.g. "tap the orange cart", "it's linked right there", "swipe up", "shop now button"), scarcity/social proof ("it keeps selling out", "stock is moving"), or a casual imperative — never a manufactured "it's $X" line. Mirror the inspo transcript's own CTA phrasing and energy as closely as possible; if the transcript's own closing line doesn't mention a price either, that's the model to follow.
@@ -154,43 +151,57 @@ Your scripts follow these principles:
 - Language must sound like a real person leaving a voice note for a friend explaining why they like something: quick, a little messy, genuinely reactive. Never scripted, never corporate, never like a happy-go-lucky insurance commercial. Genuine, specific reactions beat generic hype every time; manufactured excitement reads as fake instantly.
 - Never use the em dash character (—) anywhere in the output, in any field. Use a period, comma, or "and" instead. Em dashes are a dead giveaway of AI-written text and are strictly forbidden.
 - Never use these words or phrases anywhere in the output, in any field, regardless of topic, they are permanent giveaways of AI-written text: delve, leverage, utilize, harness, streamline, underscore, navigate, elevate, empower, showcase, showcasing, boasts, pivotal, robust, seamless, cutting-edge, game-changer, groundbreaking, vibrant, renowned, multifaceted, meticulous, intricate, paramount, noteworthy, landscape, realm, tapestry, synergy, ecosystem, journey, testament, furthermore, moreover, "it's important to note", "in today's world", "at the end of the day". If a word or phrase sounds like it belongs in a LinkedIn post or corporate blog, it does not belong in a TikTok video script.
-- You will be given the product's exact name. If you have web search available, use it to verify what this specific product actually is, what it does, and its real ingredients/features/claims before writing. The exact product name is always the source of truth — if a scraped snippet, search result, or the selected niche conflicts with it, trust the product name. Never default to a generic description of the product's broad category (for example: a lash serum must always be written about as an eyelash-growth product — never described as if it were a general skincare/face product, even if "Skincare" is the closest niche option available). Every claim, benefit, and sensory detail in every script must genuinely apply to this exact product.
-- Before writing anything, identify the ONE specific core selling point, pain point, or "aha" moment that the inspo transcript is actually built around (for example: "these shoes make you look taller", "this makes your skin noticeably brighter", "this fixes lower back pain", "this covers gray roots instantly"). That exact core angle, not a different or more generic one, is what all 3 new scripts must be built around, adapted to the new product. Do not substitute a safer, more generic benefit of the new product for it, even if that other benefit is also true. If the new product has other genuine features or benefits that the transcript's core angle did not emphasize (for example the product also has anti-aging benefits, or is also machine washable, or also comes in other colors), leave those out entirely unless they directly support the same core angle; the transcript's specific selling point decides what the whole script is about, not a list of everything the product can do. Trust the transcript's own description of what its product actually does as real, usable information about that type of product, and carry that same specific function and claim into the new script for the new product, as long as it is a plausible, genuine claim for a product of that type. This applies equally to all 3 scripts; only the hook type and structural closeness vary between them, never the core selling point being sold.
-- Before writing anything, run this exact check on the NICHE field: is the product ITSELF, by its own direct and literal function, an obvious member of that niche category, with zero reasoning or inference required (example: a protein powder is directly and obviously Fitness; a face serum is directly and obviously Skincare)? If yes, you may let that niche's natural context show up in the script. If answering requires ANY inference, reasoning, or "well, people who do X might also want Y" logic, the answer is NO, full stop, and you must write the entire script as if the NICHE field were blank, with zero reference to that niche's typical setting, props, or audience, anywhere in the script, overlays, or visual hook. Concretely: a phone case is not Fitness, even if gym-goers could use it; a sleep aid is not Fitness, even if athletes value sleep; a phone case is not Home & Kitchen, even if it sits on a kitchen counter. Do not invent a setting (a gym, a workout, an office, a kitchen) that is not already in the inspo transcript and is not the product's own direct, literal function. This rule applies with zero exceptions to all 3 scripts, including Script 1.
+- You will be given the product's exact name and, in the product information, may also be given verified research findings about it. The exact product name is always the source of truth — if a scraped snippet or the selected niche conflicts with it, trust the product name. Never default to a generic description of the product's broad category (for example: a lash serum must always be written about as an eyelash-growth product — never described as if it were a general skincare/face product, even if "Skincare" is the closest niche option available). Every claim, benefit, and sensory detail must genuinely apply to this exact product.
+- Before writing anything, identify the ONE specific core selling point, pain point, or "aha" moment that the inspo transcript is actually built around (for example: "these shoes make you look taller", "this makes your skin noticeably brighter", "this fixes lower back pain", "this covers gray roots instantly"). That exact core angle, not a different or more generic one, is what this script must be built around, adapted to the new product. Do not substitute a safer, more generic benefit of the new product for it, even if that other benefit is also true. If the new product has other genuine features or benefits that the transcript's core angle did not emphasize (for example the product also has anti-aging benefits, or is also machine washable, or also comes in other colors), leave those out entirely unless they directly support the same core angle; the transcript's specific selling point decides what the whole script is about, not a list of everything the product can do. Trust the transcript's own description of what its product actually does as real, usable information about that type of product, and carry that same specific function and claim into the new script for the new product, as long as it is a plausible, genuine claim for a product of that type.
+- Before writing anything, run this exact check on the NICHE field: is the product ITSELF, by its own direct and literal function, an obvious member of that niche category, with zero reasoning or inference required (example: a protein powder is directly and obviously Fitness; a face serum is directly and obviously Skincare)? If yes, you may let that niche's natural context show up in the script. If answering requires ANY inference, reasoning, or "well, people who do X might also want Y" logic, the answer is NO, full stop, and you must write the entire script as if the NICHE field were blank, with zero reference to that niche's typical setting, props, or audience, anywhere in the script, overlays, or visual hook. Concretely: a phone case is not Fitness, even if gym-goers could use it; a sleep aid is not Fitness, even if athletes value sleep; a phone case is not Home & Kitchen, even if it sits on a kitchen counter. Do not invent a setting (a gym, a workout, an office, a kitchen) that is not already in the inspo transcript and is not the product's own direct, literal function.
 - Know the full product name for accuracy, but never speak it out loud repeatedly. A real person says a long or formal product name at most once, if at all, then just calls it "this", "it", "this top", "this set", "this thing" for the rest of the video, exactly like they would if it were sitting in front of them. Never repeat a long, formal, or listing-style product name multiple times through the script; that is an instant giveaway that it was written by AI, not spoken by a person.
-- Match the exact vocabulary, tone, energy, and slang level of the inspo transcript, nothing more and nothing less. Never invent generic trendy phrases, forced slang, or made-up "internet voice" descriptors (like a fabricated "it's giving ___" line) that are not actually reflected in the transcript's real language, even if you believe they are currently popular. Trending slang turns over every few weeks; forcing it in when it is not actually in the source material reads as dated and try-hard almost immediately. Real authenticity comes only from matching the actual person in the transcript, never from injecting whatever slang seems current. If the transcript's speaker is dry, casual, unpolished, or doesn't use slang, the new script should not use slang either. Sound like the specific real person in the transcript, not a generic influencer caricature layered on top.
+- Match the exact vocabulary, tone, energy, and slang level of the inspo transcript, nothing more and nothing less. Never invent generic trendy phrases, forced slang, or made-up "internet voice" descriptors (like a fabricated "it's giving ___" line) that are not actually reflected in the transcript's real language, even if you believe they are currently popular. Trending slang turns over every few weeks; forcing it in when it is not actually in the source material reads as dated and try-hard almost immediately. Real authenticity comes only from matching the actual person in the transcript, never from injecting whatever slang seems current. If the transcript's speaker is dry, casual, unpolished, or doesn't use slang, the new script should not use slang either. Sound like the specific real person in the transcript, not a generic influencer caricature layered on top.`;
 
-Generate exactly 3 scripts, each with a genuinely different hook type and a different level of structural closeness to the inspo transcript:
-- Script 1: Identity/Tribe hook — open by calling out who the viewer wants to become. This script must mirror the inspo transcript's structure as closely as possible — same sentence order, same sentence lengths, same transitions, same rhythm, essentially adapted line-by-line to the new product. Only change the words that must change to fit the new product and niche.
-- Script 2: Problem/Pain hook — open with the viewer's exact frustration before they even knew this product existed. This script can take noticeably more creative freedom with the exact wording and structure than Script 1, as long as it still follows the same overall pacing energy and the pattern interrupt → agitation → solution → benefit → proof → CTA arc.
-- Script 3: Pattern Interrupt/Curiosity hook — open with something so unexpected or specific they physically cannot scroll past it. This script also has more creative freedom than Script 1, while still matching the inspo video's overall energy, pacing, and the same core arc.
+const HOOK_TYPE_LABELS = {
+  identity: 'Identity / Tribe Hook',
+  problem: 'Problem / Pain Hook',
+  curiosity: 'Pattern Interrupt / Curiosity Hook',
+};
 
-You will also be given a VIDEO STYLE, which changes how the hook, body, and cta text, the visual hook, and the overlays must be written:
+const HOOK_TYPE_INSTRUCTIONS = {
+  identity: `Write this script using an Identity/Tribe hook — open by calling out who the viewer wants to become. This script must mirror the inspo transcript's structure as closely as possible: same sentence order, same sentence lengths, same transitions, same rhythm, essentially adapted line-by-line to the new product. Only change the words that must change to fit the new product and niche. This is the one version of this script that stays this close to the transcript's exact wording; that is intentional and unique to this version.`,
+  problem: `Write this script using a Problem/Pain hook. This version's opening line MUST be phrased as a direct question aimed straight at the viewer (for example starting with "Do you ever...", "Have you noticed...", "Why does...", "Ever feel like..."), calling out their exact frustration before they even knew this product existed. Beyond that required question format, take noticeably more creative freedom with the exact wording and structure than a tight transcript mirror would, as long as it still follows the same overall pacing energy and the pattern interrupt → agitation → solution → benefit → proof → CTA arc.`,
+  curiosity: `Write this script using a Pattern Interrupt/Curiosity hook. This version's opening line MUST be phrased as a specific personal moment or anecdote (for example starting with "I did...", "The other day I...", "So this happened...", or a bizarrely specific number or detail) — never a question, never a direct statement addressed at the viewer. It must be something so unexpected or specific they physically cannot scroll past it. Beyond that required anecdote format, take creative freedom with the exact structure, while still matching the inspo video's overall energy, pacing, and the same core arc.`,
+};
+
+const VIDEO_STYLE_RULES = `You will also be given a VIDEO STYLE, which changes how the hook, body, and cta text, the visual hook, and the overlays must be written:
 - talking_head: the default. One creator speaks directly to camera the entire time, exactly as described above.
 - skit: write the hook, body, and cta as a short back-and-forth dialogue between two people. Every line must start with "PERSON 1:" or "PERSON 2:", separated by line breaks (escaped as \\n in the JSON string). Give Person 1 and Person 2 distinct, consistent roles across the whole script (for example, one skeptical and one convincing them, or one asking and one answering, or a customer and a friend). All of the psychological hook framework, pacing, and CTA rules still apply, just delivered as dialogue instead of a monologue. The visualHook and overlays must describe the setup for both people (who is where, what each is doing) instead of a single person's action.
-- faceless: the creator's face must never appear on camera and must never be referenced anywhere in the visualHook, overlays, or productionPointers (no "look at camera", "your face", "your expression", eye contact, or similar). The hook, body, and cta are still narrated by a single voiceover exactly like talking_head, but everything described in the visualHook, overlays, and productionPointers must be hands, product shots, screen recordings, text on screen, or b-roll footage only. Build every visual instruction around that constraint.
+- faceless: the creator's face must never appear on camera and must never be referenced anywhere in the visualHook, overlays, or productionPointers (no "look at camera", "your face", "your expression", eye contact, or similar). The hook, body, and cta are still narrated by a single voiceover exactly like talking_head, but everything described in the visualHook, overlays, and productionPointers must be hands, product shots, screen recordings, text on screen, or b-roll footage only. Build every visual instruction around that constraint.`;
 
-Respond with ONLY valid JSON — no markdown code fences, no commentary before or after — matching this exact schema:
+function buildSingleScriptSystemPrompt(hookType) {
+  return `You are an expert TikTok Shop affiliate script writer trained on the buyer psychology framework of Dustin Davis, one of the top TikTok Shop educators. You understand that people do not buy products — they buy identity, status, belonging, attraction, and the resolution of deep biological desires.
+
+Your script follows these principles:
+${SCRIPT_PRINCIPLES}
+
+${HOOK_TYPE_INSTRUCTIONS[hookType]}
+
+${VIDEO_STYLE_RULES}
+
+Respond with ONLY valid JSON — no markdown code fences, no commentary before or after — matching this exact schema for this one script:
 
 {
-  "scripts": [
-    {
-      "hookType": "identity" | "problem" | "curiosity",
-      "hookTypeLabel": string (e.g. "Identity / Tribe Hook"),
-      "hook": string (the [HOOK] section — 1-3 sentences, the pattern-interrupt opener),
-      "body": string (the [BODY] section — problem agitation, product as the solution, specific benefit with sensory detail, casual social proof),
-      "cta": string (the [CTA] section — urgency-based close mirroring the inspo video's real CTA phrasing and the platform's actual UI, e.g. "tap the orange cart" — never a specific price or dollar amount),
-      "speakTimeSeconds": number (estimated seconds to speak the full script at natural pace, between 15 and 30),
-      "overlays": [ { "time": "0:00", "type": "text_hook" | "visual", "text": "..." } ] (3 to 4 items total. Exactly ONE item has type "text_hook": it must be first, timed at 0:00-0:02, and its text is bold on-screen text that reinforces the spoken hook, word for word or nearly so. Every other item, 2 to 3 of them, has type "visual": a specific reference photo, image, or footage cutaway to show at that exact moment, directly matching whatever specific visual comparison, feature, ingredient, or result is being spoken right then. Example: if the line says "if your skin looks like this," the visual overlay is a close-up reference photo of that exact described condition. If a line names an ingredient, the visual overlay is a close-up of that ingredient or its packaging. If a line describes a result or transformation, the visual overlay is a photo of that result. Never make a "visual" item a generic text callout, price graphic, or arrow graphic; it must describe an actual image or footage cutaway tied precisely to the words being spoken at that timestamp.),
-      "visualHook": string (ONE short, plain, casual instruction describing what to visually show WHILE delivering the opening hook line, never a silent action before speaking; there must be zero dead air at the start of the video, so always phrase it starting with "While saying your first line, " followed by the specific action, e.g. "While saying your first line, zoom in close on your bare lashes, no mascara." or "While saying your first line, hold the box up next to your face." When it fits naturally, lead with the actual result or finished look rather than an abstract prop shot; showing the outcome first is what stops the scroll hardest. No more than about 18 words total. Do not write a cinematic, technical, or overly descriptive paragraph.),
-      "productionPointers": [string, string] (exactly 2 specific tips to make this video perform better, based on the product and niche)
-    }
-  ]
+  "hookType": "${hookType}",
+  "hookTypeLabel": "${HOOK_TYPE_LABELS[hookType]}",
+  "hook": string (the [HOOK] section — 1-3 sentences, the pattern-interrupt opener),
+  "body": string (the [BODY] section — problem agitation, product as the solution, specific benefit with sensory detail, casual social proof),
+  "cta": string (the [CTA] section — urgency-based close mirroring the inspo video's real CTA phrasing and the platform's actual UI, e.g. "tap the orange cart" — never a specific price or dollar amount),
+  "speakTimeSeconds": number (estimated seconds to speak the full script at natural pace, between 15 and 30),
+  "overlays": [ { "time": "0:00", "type": "text_hook" | "visual", "text": "..." } ] (3 to 4 items total. Exactly ONE item has type "text_hook": it must be first, timed at 0:00-0:02, and its text is bold on-screen text that reinforces the spoken hook, word for word or nearly so. Every other item, 2 to 3 of them, has type "visual": a specific reference photo, image, or footage cutaway to show at that exact moment, directly matching whatever specific visual comparison, feature, ingredient, or result is being spoken right then. Example: if the line says "if your skin looks like this," the visual overlay is a close-up reference photo of that exact described condition. If a line names an ingredient, the visual overlay is a close-up of that ingredient or its packaging. If a line describes a result or transformation, the visual overlay is a photo of that result. Never make a "visual" item a generic text callout, price graphic, or arrow graphic; it must describe an actual image or footage cutaway tied precisely to the words being spoken at that timestamp.),
+  "visualHook": string (ONE short, plain, casual instruction describing what to visually show WHILE delivering the opening hook line, never a silent action before speaking; there must be zero dead air at the start of the video, so always phrase it starting with "While saying your first line, " followed by the specific action, e.g. "While saying your first line, zoom in close on your bare lashes, no mascara." or "While saying your first line, hold the box up next to your face." When it fits naturally, lead with the actual result or finished look rather than an abstract prop shot; showing the outcome first is what stops the scroll hardest. No more than about 18 words total. Do not write a cinematic, technical, or overly descriptive paragraph.),
+  "productionPointers": [string, string] (exactly 2 specific tips to make this video perform better, based on the product and niche)
 }
 
-Return exactly 3 scripts in the array, in the order specified above. Output nothing but the JSON object.
+Output nothing but the JSON object.
 
 Critical formatting rule: the output must be strictly valid, parseable JSON. Every string value must be on a single logical line — escape any line breaks inside a string as \\n and escape any double quote characters inside a string as \\". Never include a raw, unescaped newline or unescaped quote character inside a string value.`;
+}
 
 const VIDEO_STYLE_LABELS = {
   talking_head: 'Talking Head (one person, direct to camera)',
@@ -212,7 +223,42 @@ ${productInfo}
 NICHE: ${niche}
 VIDEO STYLE: ${videoStyle} — ${VIDEO_STYLE_LABELS[videoStyle] || videoStyle}
 
-Write the 3 scripts now, following the system instructions exactly, including the video-style-specific formatting rules for "${videoStyle}". Keep each script tight and short — do not pad it out longer than the transcript above. Respond with ONLY the JSON object described in the schema.`;
+Write the script now, following the system instructions exactly, including the video-style-specific formatting rules for "${videoStyle}". Keep it tight and short — do not pad it out longer than the transcript above. Respond with ONLY the JSON object described in the schema.`;
+}
+
+const RESEARCH_SYSTEM_PROMPT = `You are a product researcher for a TikTok Shop affiliate script writer. You will be given a product name and whatever sparse information is already known about it. Use web search to find out what this exact product actually is, what it does, its real ingredients or features, and any real claims made about it.
+
+Respond with a short, plain-text paragraph (4-6 sentences) of verified, specific facts about this exact product that a script writer could use. Do not write JSON. Do not write a script. Just the verified facts, written plainly. If you cannot find anything more specific than what was already given, say so honestly in one sentence rather than inventing details.`;
+
+function buildResearchPrompt({ productInfo, niche }) {
+  return `WHAT WE ALREADY KNOW:
+"""
+${productInfo}
+"""
+
+NICHE: ${niche}
+
+Research this exact product and summarize verified facts as instructed.`;
+}
+
+async function researchProduct({ productInfo, niche }) {
+  try {
+    const message = await anthropic.messages.create({
+      model: 'claude-sonnet-4-6',
+      max_tokens: 500,
+      system: RESEARCH_SYSTEM_PROMPT,
+      tools: [{ type: 'web_search_20250305', name: 'web_search', max_uses: 2 }],
+      messages: [{ role: 'user', content: buildResearchPrompt({ productInfo, niche }) }],
+    });
+    return message.content
+      .filter((block) => block.type === 'text')
+      .map((block) => block.text || '')
+      .join('')
+      .trim();
+  } catch (err) {
+    console.error('[Research] ', err.message);
+    return '';
+  }
 }
 
 function extractJson(text) {
@@ -277,33 +323,28 @@ function isValidScript(s) {
 // was garbage, not a real product description) instead of a transient failure.
 class BadProductInfoError extends Error {}
 
-async function generateScripts({ transcript, productInfo, niche, videoStyle, useWebSearch }) {
+async function generateOneScript({ hookType, transcript, productInfo, niche, videoStyle }) {
   const maxAttempts = 3;
   let lastErr;
+  const systemPrompt = buildSingleScriptSystemPrompt(hookType);
 
   for (let attempt = 1; attempt <= maxAttempts; attempt++) {
     try {
-      const requestOptions = {
+      const message = await anthropic.messages.create({
         model: 'claude-sonnet-4-6',
-        max_tokens: 6000,
-        system: SYSTEM_PROMPT,
+        max_tokens: 2200,
+        system: systemPrompt,
         messages: [{ role: 'user', content: buildUserPrompt({ transcript, productInfo, niche, videoStyle }) }],
-      };
-      if (useWebSearch) {
-        requestOptions.tools = [{ type: 'web_search_20250305', name: 'web_search', max_uses: 2 }];
-      }
-      const message = await anthropic.messages.create(requestOptions);
+      });
 
       const raw = message.content
         .filter((block) => block.type === 'text')
         .map((block) => block.text || '')
         .join('');
       const parsed = extractJson(raw);
-      const scriptsValid =
-        parsed && Array.isArray(parsed.scripts) && parsed.scripts.length === 3 && parsed.scripts.every(isValidScript);
 
-      if (!scriptsValid) {
-        console.error(`[Claude raw response, stop_reason=${message.stop_reason}]:`, raw.slice(0, 4000));
+      if (!isValidScript(parsed)) {
+        console.error(`[Claude ${hookType} raw response, stop_reason=${message.stop_reason}]:`, raw.slice(0, 4000));
 
         if (!raw.trim().startsWith('{')) {
           // Claude wrote prose instead of JSON — almost always means it declined
@@ -313,20 +354,42 @@ async function generateScripts({ transcript, productInfo, niche, videoStyle, use
         }
 
         throw new Error(
-          `Unexpected response format from the script generator (stop_reason: ${message.stop_reason}).`
+          `Unexpected response format for the ${hookType} script (stop_reason: ${message.stop_reason}).`
         );
       }
 
-      return stripEmDashes(parsed.scripts);
+      return stripEmDashes([parsed])[0];
     } catch (err) {
       if (err instanceof BadProductInfoError) throw err;
       lastErr = err;
-      console.error(`[Claude attempt ${attempt}/${maxAttempts}] status=${err.status || 'n/a'} message=${err.message}`);
+      console.error(
+        `[Claude ${hookType} attempt ${attempt}/${maxAttempts}] status=${err.status || 'n/a'} message=${err.message}`
+      );
       if (attempt < maxAttempts) await sleep(1000 * attempt);
     }
   }
 
   throw lastErr;
+}
+
+async function generateScripts({ transcript, productInfo, niche, videoStyle, useWebSearch }) {
+  // Only do the (slower) web-search-backed research pass when we don't
+  // already have solid product info — then hand the same verified facts to
+  // all 3 writers so they stay consistent with each other.
+  let enrichedProductInfo = productInfo;
+  if (useWebSearch) {
+    const verifiedFacts = await researchProduct({ productInfo, niche });
+    if (verifiedFacts) {
+      enrichedProductInfo = productInfo + '\n\nVerified Research Findings: ' + verifiedFacts;
+    }
+  }
+
+  const hookTypes = ['identity', 'problem', 'curiosity'];
+  return Promise.all(
+    hookTypes.map((hookType) =>
+      generateOneScript({ hookType, transcript, productInfo: enrichedProductInfo, niche, videoStyle })
+    )
+  );
 }
 
 // ---------------------------------------------------------------------------
