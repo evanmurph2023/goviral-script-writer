@@ -590,6 +590,58 @@
   }
   .film-nudge:hover { opacity: 0.8; }
 
+  .revise-wrap {
+    border-top: 1px solid var(--border);
+    padding-top: 16px;
+    margin-top: 4px;
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
+  }
+  .revise-label {
+    font-size: 11px;
+    font-weight: 700;
+    text-transform: uppercase;
+    letter-spacing: 0.05em;
+    color: var(--text-secondary);
+  }
+  .revise-input {
+    width: 100%;
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: var(--radius-input);
+    color: var(--text-primary);
+    font-family: 'Inter', sans-serif;
+    font-size: 13px;
+    padding: 10px 12px;
+    min-height: 60px;
+    resize: vertical;
+    outline: none;
+    transition: border-color var(--ease);
+  }
+  .revise-input::placeholder { color: var(--text-secondary); }
+  .revise-input:focus { border-color: var(--accent-red); }
+  .revise-error {
+    display: none;
+    font-size: 12px;
+    color: var(--accent-red);
+  }
+  .revise-error.visible { display: block; }
+  .revise-btn {
+    background: var(--surface);
+    border: 1px solid var(--border);
+    color: var(--text-primary);
+    font-family: 'Inter', sans-serif;
+    font-weight: 600;
+    font-size: 13px;
+    padding: 10px;
+    border-radius: var(--radius-btn);
+    cursor: pointer;
+    transition: border-color var(--ease);
+  }
+  .revise-btn:hover:not(:disabled) { border-color: var(--accent-red); }
+  .revise-btn:disabled { opacity: 0.6; cursor: not-allowed; }
+
   /* ---------- Post-generation CTA ---------- */
   .post-gen-cta {
     max-width: 560px;
@@ -962,6 +1014,56 @@
     filmNudge.target = '_blank';
     filmNudge.rel = 'noopener';
     card.appendChild(filmNudge);
+
+    // Revision
+    const reviseWrap = el('div', { className: 'revise-wrap' });
+    reviseWrap.appendChild(el('div', { className: 'revise-label', text: 'Want something changed?' }));
+
+    const reviseInput = document.createElement('textarea');
+    reviseInput.className = 'revise-input';
+    reviseInput.placeholder = 'e.g. make this less punchy, emphasize the height boost more...';
+    reviseWrap.appendChild(reviseInput);
+
+    const reviseError = el('div', { className: 'revise-error' });
+    reviseWrap.appendChild(reviseError);
+
+    const reviseBtn = el('button', { className: 'revise-btn', text: 'Revise Script' });
+    reviseBtn.type = 'button';
+    reviseBtn.addEventListener('click', async function () {
+      const note = reviseInput.value.trim();
+      reviseError.classList.remove('visible');
+      reviseError.textContent = '';
+      if (!note) {
+        reviseInput.focus();
+        return;
+      }
+      reviseBtn.disabled = true;
+      reviseBtn.textContent = 'Revising...';
+      try {
+        const res = await fetch(API_BASE_URL + '/api/revise', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ script: script, revisionNote: note }),
+        });
+        const data = await res.json();
+        if (data.success) {
+          const newCard = buildScriptCard(data.script, index);
+          card.replaceWith(newCard);
+        } else {
+          reviseBtn.disabled = false;
+          reviseBtn.textContent = 'Revise Script';
+          reviseError.textContent = data.error || 'Something went wrong revising this script. Please try again.';
+          reviseError.classList.add('visible');
+        }
+      } catch (err) {
+        reviseBtn.disabled = false;
+        reviseBtn.textContent = 'Revise Script';
+        reviseError.textContent = 'Lost connection to the server. Please try again.';
+        reviseError.classList.add('visible');
+      }
+    });
+    reviseWrap.appendChild(reviseBtn);
+    card.appendChild(reviseWrap);
 
     return card;
   }
