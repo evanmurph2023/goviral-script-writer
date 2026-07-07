@@ -587,6 +587,55 @@
   .overlay-tag.visual { color: var(--text-secondary); background: var(--surface); border: 1px solid var(--border); }
   .overlay-text { color: var(--text-secondary); }
 
+  .anchor-mark {
+    background: rgba(245,158,11,0.22);
+    color: inherit;
+    border-radius: 3px;
+    padding: 0 2px;
+    cursor: pointer;
+    scroll-margin-top: 90px;
+    transition: background 0.3s ease;
+  }
+  .anchor-mark:hover { background: rgba(245,158,11,0.38); }
+  .anchor-mark.flash { background: rgba(245,158,11,0.6); }
+  .anchor-num {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    width: 14px;
+    height: 14px;
+    font-size: 9px;
+    font-weight: 700;
+    border-radius: 50%;
+    background: #F59E0B;
+    color: #17170F;
+    margin-right: 3px;
+    transform: translateY(-1px);
+  }
+  .overlay-item {
+    cursor: pointer;
+    border-radius: 8px;
+    padding: 5px 7px;
+    margin: -5px -7px;
+    transition: background 0.2s ease;
+    scroll-margin-top: 90px;
+  }
+  .overlay-item:hover { background: var(--surface); }
+  .overlay-item.flash { background: rgba(245,158,11,0.22); }
+  .overlay-num {
+    flex-shrink: 0;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    width: 16px;
+    height: 16px;
+    font-size: 10px;
+    font-weight: 700;
+    border-radius: 50%;
+    background: #F59E0B;
+    color: #17170F;
+  }
+
   .production-box {
     background: rgba(245,158,11,0.07);
     border: 1px solid rgba(245,158,11,0.3);
@@ -1112,9 +1161,67 @@
     return lines.join('\n');
   }
 
+  function findAnchorIndex(haystack, needle) {
+    if (!haystack || !needle) return -1;
+    const idx = haystack.indexOf(needle);
+    if (idx !== -1) return idx;
+    return haystack.toLowerCase().indexOf(needle.toLowerCase());
+  }
+
+  function buildSectionFragment(text, overlaysForSection, cardUid) {
+    const frag = document.createDocumentFragment();
+    const matches = [];
+    overlaysForSection.forEach(function (o) {
+      if (!o.anchor) return;
+      const idx = findAnchorIndex(text, o.anchor);
+      if (idx === -1) return;
+      matches.push({ start: idx, end: idx + o.anchor.length, num: o.__num });
+    });
+    matches.sort(function (a, b) { return a.start - b.start; });
+
+    const kept = [];
+    let lastEnd = -1;
+    matches.forEach(function (m) {
+      if (m.start >= lastEnd) {
+        kept.push(m);
+        lastEnd = m.end;
+      }
+    });
+
+    let cursor = 0;
+    kept.forEach(function (m) {
+      if (m.start > cursor) frag.appendChild(document.createTextNode(text.slice(cursor, m.start)));
+      const mark = el('mark', { className: 'anchor-mark' });
+      mark.id = 'anchor-' + cardUid + '-' + m.num;
+      mark.appendChild(el('span', { className: 'anchor-num', text: String(m.num) }));
+      mark.appendChild(document.createTextNode(text.slice(m.start, m.end)));
+      mark.addEventListener('click', function () {
+        flashPair(cardUid, m.num, mark);
+      });
+      frag.appendChild(mark);
+      cursor = m.end;
+    });
+    if (cursor < text.length) frag.appendChild(document.createTextNode(text.slice(cursor)));
+    return frag;
+  }
+
+  function flashPair(cardUid, num, originEl) {
+    const mark = document.getElementById('anchor-' + cardUid + '-' + num);
+    const item = document.getElementById('overlay-' + cardUid + '-' + num);
+    if (mark) mark.classList.add('flash');
+    if (item) item.classList.add('flash');
+    setTimeout(function () {
+      if (mark) mark.classList.remove('flash');
+      if (item) item.classList.remove('flash');
+    }, 1400);
+    const scrollTarget = originEl === item ? mark : item;
+    if (scrollTarget) scrollTarget.scrollIntoView({ behavior: 'smooth', block: 'center' });
+  }
+
   function buildScriptCard(script, index) {
     const card = el('div', { className: 'script-card' });
     card.style.animationDelay = (index * 120) + 'ms';
+    const cardUid = 'c' + index + '_' + Math.random().toString(36).slice(2, 7);
 
     // Header
     const header = el('div', { className: 'script-card-header' });
@@ -1130,6 +1237,12 @@
       card.appendChild(box);
     }
 
+    // Number every overlay once, in order, so the same badge number ties an
+    // inline highlight in the script text to its entry in the list below.
+    const overlaysWithNum = (Array.isArray(script.overlays) ? script.overlays : []).map(function (o, i) {
+      return Object.assign({}, o, { __num: i + 1 });
+    });
+
     // Hook / Body / CTA
     const sections = [
       { key: 'hook', tag: '[HOOK]', text: script.hook },
@@ -1140,23 +1253,41 @@
       if (!s.text) return;
       const sec = el('div', { className: 'script-section ' + s.key });
       sec.appendChild(el('span', { className: 'section-tag', text: s.tag }));
-      sec.appendChild(el('div', { className: 'section-text', text: s.text }));
+      const textEl = el('div', { className: 'section-text' });
+      const overlaysForSection = overlaysWithNum.filter(function (o) { return o.section === s.key; });
+      textEl.appendChild(buildSectionFragment(s.text, overlaysForSection, cardUid));
+      sec.appendChild(textEl);
       card.appendChild(sec);
     });
 
     // Overlays
-    if (Array.isArray(script.overlays) && script.overlays.length) {
+    if (overlaysWithNum.length) {
       const wrap = el('div', { className: 'overlays-list' });
-      wrap.appendChild(el('div', { className: 'list-label', text: 'Overlay suggestions' }));
-      script.overlays.forEach(function (o) {
+      wrap.appendChild(el('div', { className: 'list-label', text: 'Overlay suggestions — tap one to see exactly where it goes' }));
+      overlaysWithNum.forEach(function (o) {
         const item = el('div', { className: 'overlay-item' });
+        item.id = 'overlay-' + cardUid + '-' + o.__num;
         const isTextHook = o.type === 'text_hook';
+        item.appendChild(el('span', { className: 'overlay-num', text: String(o.__num) }));
         item.appendChild(el('span', { className: 'overlay-time', text: o.time || '' }));
         item.appendChild(el('span', {
           className: 'overlay-tag ' + (isTextHook ? 'text_hook' : 'visual'),
           text: isTextHook ? 'Text Hook' : 'Visual',
         }));
         item.appendChild(el('span', { className: 'overlay-text', text: o.text || '' }));
+        item.addEventListener('click', function () {
+          const mark = document.getElementById('anchor-' + cardUid + '-' + o.__num);
+          if (mark) {
+            flashPair(cardUid, o.__num, item);
+          } else if (o.section) {
+            const sectionEl = card.querySelector('.script-section.' + o.section);
+            if (sectionEl) {
+              sectionEl.scrollIntoView({ behavior: 'smooth', block: 'center' });
+              item.classList.add('flash');
+              setTimeout(function () { item.classList.remove('flash'); }, 1400);
+            }
+          }
+        });
         wrap.appendChild(item);
       });
       card.appendChild(wrap);

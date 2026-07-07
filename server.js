@@ -193,7 +193,7 @@ Respond with ONLY valid JSON — no markdown code fences, no commentary before o
   "body": string (the [BODY] section — problem agitation, product as the solution, specific benefit with sensory detail, casual social proof),
   "cta": string (the [CTA] section — urgency-based close mirroring the inspo video's real CTA phrasing and the platform's actual UI, e.g. "tap the orange cart" — never a specific price or dollar amount),
   "speakTimeSeconds": number (estimated seconds to speak the full script at natural pace, between 15 and 30),
-  "overlays": [ { "time": "0:00", "type": "text_hook" | "visual", "text": "..." } ] (3 to 4 items total. Exactly ONE item has type "text_hook": it must be first, timed at 0:00-0:02, and its text is bold on-screen text that reinforces the spoken hook, word for word or nearly so. Every other item, 2 to 3 of them, has type "visual": a specific reference photo, image, or footage cutaway to show at that exact moment, directly matching whatever specific visual comparison, feature, ingredient, or result is being spoken right then. Example: if the line says "if your skin looks like this," the visual overlay is a close-up reference photo of that exact described condition. If a line names an ingredient, the visual overlay is a close-up of that ingredient or its packaging. If a line describes a result or transformation, the visual overlay is a photo of that result. Never make a "visual" item a generic text callout, price graphic, or arrow graphic; it must describe an actual image or footage cutaway tied precisely to the words being spoken at that timestamp.),
+  "overlays": [ { "time": "0:00", "type": "text_hook" | "visual", "text": "...", "section": "hook" | "body" | "cta", "anchor": "..." } ] (3 to 4 items total. Exactly ONE item has type "text_hook": it must be first, timed at 0:00-0:02, and its text is bold on-screen text that reinforces the spoken hook, word for word or nearly so. Every other item, 2 to 3 of them, has type "visual": a specific reference photo, image, or footage cutaway to show at that exact moment, directly matching whatever specific visual comparison, feature, ingredient, or result is being spoken right then. Example: if the line says "if your skin looks like this," the visual overlay is a close-up reference photo of that exact described condition. If a line names an ingredient, the visual overlay is a close-up of that ingredient or its packaging. If a line describes a result or transformation, the visual overlay is a photo of that result. Never make a "visual" item a generic text callout, price graphic, or arrow graphic; it must describe an actual image or footage cutaway tied precisely to the words being spoken at that timestamp. For every overlay item, "section" is which of the hook, body, or cta text that overlay happens during, and "anchor" is the exact, verbatim, contiguous span of 4 to 10 consecutive words copied character-for-character from that section's text, the precise moment this overlay applies to. The anchor must be an exact substring you could find with a plain text search, never paraphrased, shortened, or reworded.),
   "visualHook": string (ONE short, plain, casual instruction describing what to visually show WHILE delivering the opening hook line, never a silent action before speaking; there must be zero dead air at the start of the video, so always phrase it starting with "While saying your first line, " followed by the specific action, e.g. "While saying your first line, zoom in close on your bare lashes, no mascara." or "While saying your first line, hold the box up next to your face." When it fits naturally, lead with the actual result or finished look rather than an abstract prop shot; showing the outcome first is what stops the scroll hardest. No more than about 18 words total. Do not write a cinematic, technical, or overly descriptive paragraph.),
   "productionPointers": [string, string] (exactly 2 specific tips to make this video perform better, based on the product and niche)
 }
@@ -300,7 +300,9 @@ function stripEmDashes(scripts) {
     cta: clean(s.cta),
     visualHook: clean(s.visualHook),
     productionPointers: Array.isArray(s.productionPointers) ? s.productionPointers.map(clean) : s.productionPointers,
-    overlays: Array.isArray(s.overlays) ? s.overlays.map((o) => ({ ...o, text: clean(o.text) })) : s.overlays,
+    overlays: Array.isArray(s.overlays)
+      ? s.overlays.map((o) => ({ ...o, text: clean(o.text), anchor: clean(o.anchor) }))
+      : s.overlays,
   }));
 }
 
@@ -407,6 +409,7 @@ All of these rules still apply to the revised version, with no exceptions:
 - Language must sound like a real person leaving a voice note for a friend, not a script.
 - The visualHook must start with "While saying your first line, " followed by a specific, short action, no more than about 18 words.
 - Exactly one overlay has type "text_hook" (always first, timed at 0:00), and every other overlay has type "visual" and describes a specific reference photo, image, or footage cutaway tied precisely to what's being said at that moment, never a generic text callout.
+- Every overlay item must keep (or, if the revision changed that line, correctly update) its "section" (which of hook, body, or cta it happens during) and "anchor" (the exact, verbatim, contiguous span of 4 to 10 consecutive words copied character-for-character from that section's revised text). The anchor must be an exact substring of the section text after your revision, never paraphrased.
 
 Respond with ONLY valid JSON matching this exact schema, no markdown code fences, no commentary before or after:
 
@@ -417,7 +420,7 @@ Respond with ONLY valid JSON matching this exact schema, no markdown code fences
   "body": string,
   "cta": string,
   "speakTimeSeconds": number,
-  "overlays": [ { "time": "0:00", "type": "text_hook" | "visual", "text": "..." } ],
+  "overlays": [ { "time": "0:00", "type": "text_hook" | "visual", "text": "...", "section": "hook" | "body" | "cta", "anchor": "..." } ],
   "visualHook": string,
   "productionPointers": [string, string]
 }
