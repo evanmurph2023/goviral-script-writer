@@ -285,6 +285,56 @@
     margin-bottom: 12px;
   }
 
+  .add-video-btn {
+    display: block;
+    width: 100%;
+    background: transparent;
+    border: 1px dashed var(--border);
+    color: var(--text-secondary);
+    font-family: 'Inter', sans-serif;
+    font-weight: 600;
+    font-size: 13px;
+    padding: 11px;
+    border-radius: var(--radius-input);
+    cursor: pointer;
+    transition: border-color var(--ease), color var(--ease);
+    margin-bottom: 20px;
+  }
+  .add-video-btn[hidden] { display: none; }
+  .add-video-btn:hover { border-color: var(--accent-red); color: var(--text-primary); }
+
+  .video-slot { position: relative; }
+  .remove-video-btn {
+    background: transparent;
+    border: none;
+    color: var(--text-secondary);
+    font-family: 'Inter', sans-serif;
+    font-size: 12px;
+    font-weight: 600;
+    cursor: pointer;
+    padding: 0;
+    margin-top: 8px;
+    transition: color var(--ease);
+  }
+  .remove-video-btn:hover { color: var(--accent-red); }
+
+  .source-row {
+    display: flex;
+    gap: 12px;
+  }
+  .source-item {
+    flex: 1;
+  }
+  .source-mini-label {
+    display: block;
+    font-size: 11px;
+    font-weight: 600;
+    text-transform: uppercase;
+    letter-spacing: 0.04em;
+    color: var(--text-secondary);
+    margin-bottom: 6px;
+  }
+
   .error-banner {
     display: none;
     background: rgba(255,54,54,0.08);
@@ -750,14 +800,57 @@
 
       <form id="generateForm">
         <div class="field">
-          <label for="tiktokUrl">TikTok inspo video URL</label>
-          <input type="url" id="tiktokUrl" placeholder="Paste the TikTok URL of a video you want to model" />
+          <label for="tiktokUrl0">TikTok inspo video URL</label>
+          <input type="url" id="tiktokUrl0" placeholder="Paste the TikTok URL of a video you want to model" />
           <div class="field-helper">We'll transcribe this video and use its structure as the foundation for your scripts</div>
         </div>
 
-        <div id="transcriptFallbackBox" class="fallback-box">
-          <div class="fallback-msg" id="transcriptFallbackMsg">We couldn't pull that video directly — paste the transcript or describe the video style below</div>
-          <textarea id="fallbackTranscript" placeholder="Paste the transcript, or describe the video's hook, pacing, and style..."></textarea>
+        <div id="transcriptFallbackBox0" class="fallback-box">
+          <div class="fallback-msg" id="transcriptFallbackMsg0">We couldn't pull that video directly — paste the transcript or describe the video style below</div>
+          <textarea id="fallbackTranscript0" placeholder="Paste the transcript, or describe the video's hook, pacing, and style..."></textarea>
+        </div>
+
+        <button type="button" class="add-video-btn" id="addVideo1Btn">+ Add a second video (optional)</button>
+
+        <div class="field video-slot" id="videoWrap1" hidden>
+          <label for="tiktokUrl1">Second TikTok inspo video URL</label>
+          <input type="url" id="tiktokUrl1" placeholder="Paste another TikTok URL" />
+          <button type="button" class="remove-video-btn" id="removeVideo1Btn">Remove this video</button>
+        </div>
+        <div id="transcriptFallbackBox1" class="fallback-box">
+          <div class="fallback-msg" id="transcriptFallbackMsg1">We couldn't pull that video directly — paste the transcript or describe the video style below</div>
+          <textarea id="fallbackTranscript1" placeholder="Paste the transcript, or describe the video's hook, pacing, and style..."></textarea>
+        </div>
+
+        <button type="button" class="add-video-btn" id="addVideo2Btn" hidden>+ Add a third video (optional)</button>
+
+        <div class="field video-slot" id="videoWrap2" hidden>
+          <label for="tiktokUrl2">Third TikTok inspo video URL</label>
+          <input type="url" id="tiktokUrl2" placeholder="Paste another TikTok URL" />
+          <button type="button" class="remove-video-btn" id="removeVideo2Btn">Remove this video</button>
+        </div>
+        <div id="transcriptFallbackBox2" class="fallback-box">
+          <div class="fallback-msg" id="transcriptFallbackMsg2">We couldn't pull that video directly — paste the transcript or describe the video style below</div>
+          <textarea id="fallbackTranscript2" placeholder="Paste the transcript, or describe the video's hook, pacing, and style..."></textarea>
+        </div>
+
+        <div class="field" id="sourceAssignmentWrap" hidden>
+          <label>Which video should each section come from?</label>
+          <div class="field-helper" style="margin-top: -4px; margin-bottom: 10px;">We'll blend them into one script — the hook, body, and CTA can each come from a different video</div>
+          <div class="source-row">
+            <div class="source-item">
+              <label class="source-mini-label" for="hookSource">Hook</label>
+              <select id="hookSource"></select>
+            </div>
+            <div class="source-item">
+              <label class="source-mini-label" for="bodySource">Body</label>
+              <select id="bodySource"></select>
+            </div>
+            <div class="source-item">
+              <label class="source-mini-label" for="ctaSource">CTA</label>
+              <select id="ctaSource"></select>
+            </div>
+          </div>
         </div>
 
         <div class="field">
@@ -772,7 +865,7 @@
         </div>
 
         <div class="field">
-          <label for="fallbackBenefits">Additional product details <span class="field-optional">(optional)</span></label>
+          <label for="fallbackBenefits">Additional details <span class="field-optional">(optional)</span></label>
           <textarea id="fallbackBenefits" placeholder="Any specific ingredients, claims, or details you want included..."></textarea>
         </div>
 
@@ -829,10 +922,7 @@
         <span class="badge-ready">Ready</span>
       </div>
 
-      <div class="transcript-box" id="transcriptBox">
-        <div class="transcript-label">Transcript from your inspo video</div>
-        <div class="transcript-text" id="transcriptText"></div>
-      </div>
+      <div id="transcriptContainer"></div>
 
       <div class="scripts-grid" id="scriptsGrid"></div>
 
@@ -866,13 +956,88 @@
   const errorBanner = document.getElementById('errorBanner');
   const outputSection = document.getElementById('outputSection');
   const scriptsGrid = document.getElementById('scriptsGrid');
-  const transcriptText = document.getElementById('transcriptText');
+  const transcriptContainer = document.getElementById('transcriptContainer');
   const navEditLink = document.getElementById('navEditLink');
   const footerEditLink = document.getElementById('footerEditLink');
 
-  const transcriptFallbackBox = document.getElementById('transcriptFallbackBox');
-  const transcriptFallbackMsg = document.getElementById('transcriptFallbackMsg');
-  const fallbackTranscript = document.getElementById('fallbackTranscript');
+  const videoSlots = [0, 1, 2].map(function (i) {
+    return {
+      tiktokUrl: document.getElementById('tiktokUrl' + i),
+      fallbackBox: document.getElementById('transcriptFallbackBox' + i),
+      fallbackMsg: document.getElementById('transcriptFallbackMsg' + i),
+      fallbackTranscript: document.getElementById('fallbackTranscript' + i),
+    };
+  });
+  let activeVideoCount = 1;
+
+  const addVideo1Btn = document.getElementById('addVideo1Btn');
+  const addVideo2Btn = document.getElementById('addVideo2Btn');
+  const removeVideo1Btn = document.getElementById('removeVideo1Btn');
+  const removeVideo2Btn = document.getElementById('removeVideo2Btn');
+  const videoWrap1 = document.getElementById('videoWrap1');
+  const videoWrap2 = document.getElementById('videoWrap2');
+  const sourceAssignmentWrap = document.getElementById('sourceAssignmentWrap');
+  const hookSourceSelect = document.getElementById('hookSource');
+  const bodySourceSelect = document.getElementById('bodySource');
+  const ctaSourceSelect = document.getElementById('ctaSource');
+
+  function refreshSourceOptions() {
+    const selects = [hookSourceSelect, bodySourceSelect, ctaSourceSelect];
+    selects.forEach(function (select) {
+      const prevValue = select.value;
+      select.innerHTML = '';
+      for (let i = 1; i <= activeVideoCount; i++) {
+        const opt = document.createElement('option');
+        opt.value = String(i);
+        opt.textContent = 'Video ' + i;
+        select.appendChild(opt);
+      }
+      if (prevValue && Number(prevValue) <= activeVideoCount) select.value = prevValue;
+    });
+    sourceAssignmentWrap.hidden = activeVideoCount < 2;
+  }
+
+  addVideo1Btn.addEventListener('click', function () {
+    activeVideoCount = 2;
+    videoWrap1.hidden = false;
+    addVideo1Btn.hidden = true;
+    addVideo2Btn.hidden = false;
+    refreshSourceOptions();
+  });
+
+  addVideo2Btn.addEventListener('click', function () {
+    activeVideoCount = 3;
+    videoWrap2.hidden = false;
+    addVideo2Btn.hidden = true;
+    refreshSourceOptions();
+  });
+
+  removeVideo1Btn.addEventListener('click', function () {
+    activeVideoCount = 1;
+    videoWrap1.hidden = true;
+    videoWrap2.hidden = true;
+    videoSlots[1].tiktokUrl.value = '';
+    videoSlots[1].fallbackTranscript.value = '';
+    videoSlots[1].fallbackBox.classList.remove('visible');
+    videoSlots[2].tiktokUrl.value = '';
+    videoSlots[2].fallbackTranscript.value = '';
+    videoSlots[2].fallbackBox.classList.remove('visible');
+    addVideo1Btn.hidden = false;
+    addVideo2Btn.hidden = true;
+    refreshSourceOptions();
+  });
+
+  removeVideo2Btn.addEventListener('click', function () {
+    activeVideoCount = 2;
+    videoWrap2.hidden = true;
+    videoSlots[2].tiktokUrl.value = '';
+    videoSlots[2].fallbackTranscript.value = '';
+    videoSlots[2].fallbackBox.classList.remove('visible');
+    addVideo2Btn.hidden = false;
+    refreshSourceOptions();
+  });
+
+  refreshSourceOptions();
 
   const fallbackBenefits = document.getElementById('fallbackBenefits');
 
@@ -1108,12 +1273,23 @@
     return card;
   }
 
-  function renderScripts(scripts, transcript) {
+  function renderScripts(scripts, transcripts) {
     scriptsGrid.innerHTML = '';
     scripts.forEach(function (script, i) {
       scriptsGrid.appendChild(buildScriptCard(script, i));
     });
-    transcriptText.textContent = transcript || '';
+
+    transcriptContainer.innerHTML = '';
+    (transcripts || []).forEach(function (t, i) {
+      const box = el('div', { className: 'transcript-box' });
+      box.appendChild(el('div', {
+        className: 'transcript-label',
+        text: transcripts.length > 1 ? 'Video ' + (i + 1) + ' transcript' : 'Transcript from your inspo video',
+      }));
+      box.appendChild(el('div', { className: 'transcript-text', text: t || '' }));
+      transcriptContainer.appendChild(box);
+    });
+
     outputSection.hidden = false;
     navEditLink.hidden = false;
     navEditLink.classList.add('revealed');
@@ -1125,14 +1301,24 @@
     e.preventDefault();
     hideError();
 
-    const tiktokUrl = document.getElementById('tiktokUrl').value.trim();
     const productName = document.getElementById('productName').value.trim();
     const productUrl = document.getElementById('productUrl').value.trim();
     const price = document.getElementById('price').value.trim();
     const niche = document.getElementById('niche').value;
     const videoStyle = document.getElementById('videoStyle').value;
-    const fbTranscript = fallbackTranscript.value.trim();
     const fbBenefits = fallbackBenefits.value.trim();
+
+    const videos = [];
+    for (let i = 0; i < activeVideoCount; i++) {
+      const slot = videoSlots[i];
+      const url = slot.tiktokUrl.value.trim();
+      const fb = slot.fallbackTranscript.value.trim();
+      if (i > 0 && !url && !fb) {
+        showError('Video ' + (i + 1) + ' is added but empty — fill it in or click "Remove this video".');
+        return;
+      }
+      videos.push({ url: url, fallbackTranscript: fb });
+    }
 
     if (!price || !niche) {
       showError('Please add a price and select a niche before generating.');
@@ -1142,7 +1328,7 @@
       showError('Please select a video style before generating.');
       return;
     }
-    if (!tiktokUrl && !fbTranscript) {
+    if (!videos[0].url && !videos[0].fallbackTranscript) {
       showError('Paste a TikTok URL, or use the fallback field to describe the video.');
       return;
     }
@@ -1159,13 +1345,15 @@
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
-          tiktokUrl: tiktokUrl,
+          videos: videos,
+          hookSource: activeVideoCount > 1 ? hookSourceSelect.value : '1',
+          bodySource: activeVideoCount > 1 ? bodySourceSelect.value : '1',
+          ctaSource: activeVideoCount > 1 ? ctaSourceSelect.value : '1',
           productName: productName,
           productUrl: productUrl,
           price: price,
           niche: niche,
           videoStyle: videoStyle,
-          fallbackTranscript: fbTranscript,
           fallbackBenefits: fbBenefits,
         }),
       });
@@ -1173,10 +1361,13 @@
       const data = await res.json();
 
       if (data.success) {
-        renderScripts(data.scripts, data.transcript);
+        renderScripts(data.scripts, data.transcripts);
       } else if (data.needsTranscriptFallback || data.needsProductFallback) {
         if (data.needsTranscriptFallback) {
-          showFallback(transcriptFallbackBox, transcriptFallbackMsg, data.transcriptMessage);
+          (data.fallbackNeededIndices || [0]).forEach(function (i) {
+            const slot = videoSlots[i];
+            if (slot) showFallback(slot.fallbackBox, slot.fallbackMsg, data.transcriptMessage);
+          });
         }
         showError(
           data.needsProductFallback

@@ -473,16 +473,35 @@ async function reviseScript({ script, revisionNote }) {
 // ---------------------------------------------------------------------------
 // Route
 // ---------------------------------------------------------------------------
+function buildMultiVideoTranscript({ resolvedTranscripts, hookSource, bodySource, ctaSource }) {
+  if (resolvedTranscripts.length === 1) {
+    return resolvedTranscripts[0];
+  }
+
+  const blocks = resolvedTranscripts
+    .map((t, i) => `VIDEO ${i + 1} TRANSCRIPT:\n"""\n${t}\n"""`)
+    .join('\n\n');
+
+  return `${blocks}
+
+SOURCE ASSIGNMENT (which video's real content and style to model each section on — blend these into one script that reads as one continuous, natural piece, not disconnected chunks stapled together):
+- HOOK section: model it closely on VIDEO ${hookSource}'s transcript above — its opening style, energy, and pacing.
+- BODY section: model it closely on VIDEO ${bodySource}'s transcript above — its structure, rhythm, and how it builds its case.
+- CTA section: model it closely on VIDEO ${ctaSource}'s transcript above — its closing style and energy.`;
+}
+
 app.post('/api/generate', async (req, res) => {
   try {
     const {
-      tiktokUrl,
+      videos,
+      hookSource,
+      bodySource,
+      ctaSource,
       productName,
       productUrl,
       price,
       niche,
       videoStyle,
-      fallbackTranscript,
       fallbackBenefits,
     } = req.body || {};
 
@@ -496,20 +515,28 @@ app.post('/api/generate', async (req, res) => {
       return res.status(400).json({ success: false, error: 'A valid video style is required.' });
     }
 
-    // Run the video transcription and product page scrape concurrently — they
-    // don't depend on each other, and were previously running one after the
-    // other for no reason, adding several seconds of dead wait time.
-    const transcriptPromise = (async () => {
-      const fb = (fallbackTranscript || '').trim();
-      if (fb) return fb;
-      if (!tiktokUrl) return '';
-      try {
-        return await getTranscriptFromTikTok(tiktokUrl);
-      } catch (err) {
-        console.error('[TikTok/Whisper] ', err.message);
-        return '';
-      }
-    })();
+    const providedVideos = (Array.isArray(videos) ? videos : []).filter(
+      (v) => v && ((v.url && v.url.trim()) || (v.fallbackTranscript && v.fallbackTranscript.trim()))
+    );
+    if (providedVideos.length === 0) {
+      return res.status(400).json({ success: false, error: 'At least one inspo video is required.' });
+    }
+
+    // Run every provided video's transcription and the product page scrape
+    // all concurrently — none of them depend on each other.
+    const transcriptPromises = providedVideos.map((v) =>
+      (async () => {
+        const fb = (v.fallbackTranscript || '').trim();
+        if (fb) return { transcript: fb, needsFallback: false };
+        try {
+          const transcript = await getTranscriptFromTikTok(v.url.trim());
+          return { transcript, needsFallback: false };
+        } catch (err) {
+          console.error('[TikTok/Whisper] ', err.message);
+          return { transcript: '', needsFallback: true };
+        }
+      })()
+    );
 
     const scrapePromise = (async () => {
       if (!productUrl || !productUrl.trim()) return '';
@@ -521,17 +548,35 @@ app.post('/api/generate', async (req, res) => {
       }
     })();
 
-    const [transcript, scrapedInfo] = await Promise.all([transcriptPromise, scrapePromise]);
+    const [videoResults, scrapedInfo] = await Promise.all([
+      Promise.all(transcriptPromises),
+      scrapePromise,
+    ]);
 
-    if (!transcript) {
+    const fallbackNeededIndices = videoResults
+      .map((v, i) => (v.needsFallback ? i : -1))
+      .filter((i) => i !== -1);
+
+    if (fallbackNeededIndices.length > 0) {
       return res.json({
         success: false,
         needsTranscriptFallback: true,
         needsProductFallback: false,
+        fallbackNeededIndices,
         transcriptMessage:
           "We couldn't pull that video directly — paste the transcript or describe the video style below",
       });
     }
+
+    const resolvedTranscripts = videoResults.map((v) => v.transcript);
+    const videoCount = resolvedTranscripts.length;
+    const clampSource = (n) => Math.min(Math.max(parseInt(n, 10) || 1, 1), videoCount);
+    const transcript = buildMultiVideoTranscript({
+      resolvedTranscripts,
+      hookSource: clampSource(hookSource),
+      bodySource: clampSource(bodySource),
+      ctaSource: clampSource(ctaSource),
+    });
 
     const productInfo = buildProductContext({
       productName: productName.trim(),
@@ -553,7 +598,7 @@ app.post('/api/generate', async (req, res) => {
         videoStyle,
         useWebSearch: !hasSubstantialProductInfo,
       });
-      return res.json({ success: true, scripts, transcript });
+      return res.json({ success: true, scripts, transcripts: resolvedTranscripts });
     } catch (err) {
       if (err instanceof BadProductInfoError) {
         return res.json({
@@ -561,7 +606,7 @@ app.post('/api/generate', async (req, res) => {
           needsTranscriptFallback: false,
           needsProductFallback: true,
           productMessage:
-            "We couldn't pin down enough real detail on that exact product — double-check the product name spelling, or add specifics in the \"Additional product details\" box below, then try again",
+            "We couldn't pin down enough real detail on that exact product — double-check the product name spelling, or add specifics in the \"Additional details\" box below, then try again",
         });
       }
       throw err;
