@@ -164,7 +164,7 @@ const HOOK_TYPE_LABELS = {
 };
 
 const HOOK_TYPE_INSTRUCTIONS = {
-  identity: `Write this script using an Identity/Tribe hook — open by calling out who the viewer wants to become. This script must mirror the inspo transcript's structure as closely as possible: same sentence order, same sentence lengths, same transitions, same rhythm, essentially adapted line-by-line to the new product. Only change the words that must change to fit the new product and niche. This is the one version of this script that stays this close to the transcript's exact wording; that is intentional and unique to this version.`,
+  identity: `Write this script using an Identity/Tribe hook — open by calling out who the viewer wants to become. This script must mirror the inspo transcript's structure as closely as possible: same sentence order, same sentence lengths, same transitions, same rhythm, essentially adapted line-by-line to the new product. This is the one version of this script that stays this close to the transcript's structure; that is intentional and unique to this version. Within that constraint, use your own natural phrasing rather than converging on one fixed rewording: pick different specific words, small details, and turns of phrase than you might use on another pass, the way a real person retelling the same story never tells it with the exact same sentence twice. Structure stays locked; word choice should not.`,
   problem: `Write this script using a Problem/Pain hook. This version's opening line MUST be phrased as a direct question aimed straight at the viewer (for example starting with "Do you ever...", "Have you noticed...", "Why does...", "Ever feel like..."), calling out their exact frustration before they even knew this product existed. Beyond that required question format, take noticeably more creative freedom with the exact wording and structure than a tight transcript mirror would, as long as it still follows the same overall pacing energy and the pattern interrupt → agitation → solution → benefit → proof → CTA arc.`,
   curiosity: `Write this script using a Pattern Interrupt/Curiosity hook. This version's opening line MUST be phrased as a specific personal moment or anecdote (for example starting with "I did...", "The other day I...", "So this happened...", or a bizarrely specific number or detail) — never a question, never a direct statement addressed at the viewer. It must be something so unexpected or specific they physically cannot scroll past it. Beyond that required anecdote format, take creative freedom with the exact structure, while still matching the inspo video's overall energy, pacing, and the same core arc.`,
 };
@@ -641,6 +641,55 @@ app.post('/api/revise', async (req, res) => {
       success: false,
       error: 'Something went wrong revising this script. Please try again.',
     });
+  }
+});
+
+// ---------------------------------------------------------------------------
+// STEP 6 — Let a returning visitor skip the email gate by confirming they've
+// already submitted it, checked against real Netlify Forms submissions.
+// ---------------------------------------------------------------------------
+async function hasEmailAlreadySubmitted(email) {
+  const formId = process.env.NETLIFY_FORM_ID;
+  const token = process.env.NETLIFY_API_TOKEN;
+  if (!formId || !token) {
+    throw new Error('Lead lookup is not configured.');
+  }
+
+  const normalized = email.trim().toLowerCase();
+  const perPage = 100;
+  for (let page = 1; page <= 20; page++) {
+    const { data: submissions } = await axios.get(
+      `https://api.netlify.com/api/v1/forms/${formId}/submissions`,
+      {
+        headers: { Authorization: `Bearer ${token}` },
+        params: { page, per_page: perPage },
+        timeout: 10000,
+      }
+    );
+    if (!Array.isArray(submissions) || submissions.length === 0) break;
+
+    const match = submissions.some((s) => {
+      const subEmail = s && s.data && s.data.email;
+      return typeof subEmail === 'string' && subEmail.trim().toLowerCase() === normalized;
+    });
+    if (match) return true;
+
+    if (submissions.length < perPage) break;
+  }
+  return false;
+}
+
+app.post('/api/check-lead', async (req, res) => {
+  const { email } = req.body || {};
+  if (!email || typeof email !== 'string' || !email.trim()) {
+    return res.status(400).json({ success: false, error: 'Email is required.' });
+  }
+  try {
+    const found = await hasEmailAlreadySubmitted(email);
+    res.json({ success: true, found });
+  } catch (err) {
+    console.error('[check-lead] ', err.message);
+    res.status(500).json({ success: false, error: 'Could not check that email right now. Please try again.' });
   }
 });
 

@@ -867,6 +867,20 @@
     margin-bottom: 12px;
   }
   .gate-error.visible { display: block; }
+  .gate-already-link {
+    display: block;
+    width: 100%;
+    background: none;
+    border: none;
+    color: var(--text-secondary);
+    font-size: 12.5px;
+    text-decoration: underline;
+    cursor: pointer;
+    margin-top: 14px;
+    padding: 0;
+  }
+  .gate-already-link:hover { color: var(--text-primary); }
+  #gateLookupForm .btn-primary { margin-top: 4px; }
 
   /* ---------- Responsive ---------- */
   @media (max-width: 640px) {
@@ -1069,6 +1083,15 @@
       </div>
       <button type="submit" id="gateSubmitBtn" class="btn-primary">Unlock My Scripts</button>
     </form>
+    <button type="button" id="gateAlreadyLink" class="gate-already-link">Already gave us your info?</button>
+    <form id="gateLookupForm" hidden>
+      <div class="field">
+        <label for="gateLookupEmail">Email</label>
+        <input type="email" id="gateLookupEmail" placeholder="you@example.com" />
+      </div>
+      <button type="submit" id="gateLookupBtn" class="btn-primary">Check My Email</button>
+      <button type="button" id="gateLookupBack" class="gate-already-link">Back</button>
+    </form>
   </div>
 </div>
 
@@ -1151,6 +1174,69 @@
     })
       .then(unlockAll)
       .catch(unlockAll);
+  });
+
+  const gateAlreadyLink = document.getElementById('gateAlreadyLink');
+  const gateLookupForm = document.getElementById('gateLookupForm');
+  const gateLookupEmail = document.getElementById('gateLookupEmail');
+  const gateLookupBtn = document.getElementById('gateLookupBtn');
+  const gateLookupBack = document.getElementById('gateLookupBack');
+
+  gateAlreadyLink.addEventListener('click', function () {
+    gateForm.hidden = true;
+    gateAlreadyLink.hidden = true;
+    gateLookupForm.hidden = false;
+    gateError.classList.remove('visible');
+    gateLookupEmail.focus();
+  });
+
+  gateLookupBack.addEventListener('click', function () {
+    gateLookupForm.hidden = true;
+    gateForm.hidden = false;
+    gateAlreadyLink.hidden = false;
+    gateError.classList.remove('visible');
+  });
+
+  gateLookupForm.addEventListener('submit', function (e) {
+    e.preventDefault();
+    gateError.classList.remove('visible');
+    const email = gateLookupEmail.value.trim();
+    const emailOk = /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email);
+    if (!emailOk) {
+      gateError.textContent = 'Enter a valid email to check.';
+      gateError.classList.add('visible');
+      return;
+    }
+
+    gateLookupBtn.disabled = true;
+    gateLookupBtn.textContent = 'Checking...';
+
+    fetch(API_BASE_URL + '/api/check-lead', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ email: email }),
+    })
+      .then(function (res) { return res.json(); })
+      .then(function (data) {
+        gateLookupBtn.disabled = false;
+        gateLookupBtn.textContent = 'Check My Email';
+        if (data.success && data.found) {
+          unlockAll();
+        } else {
+          gateLookupForm.hidden = true;
+          gateForm.hidden = false;
+          gateAlreadyLink.hidden = false;
+          gateEmail.value = email;
+          gateError.textContent = 'No matches found — please fill out the form below.';
+          gateError.classList.add('visible');
+        }
+      })
+      .catch(function () {
+        gateLookupBtn.disabled = false;
+        gateLookupBtn.textContent = 'Check My Email';
+        gateError.textContent = 'Could not check that email right now. Please try again.';
+        gateError.classList.add('visible');
+      });
   });
 
   const videoSlots = [0, 1, 2].map(function (i) {
