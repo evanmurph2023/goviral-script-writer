@@ -8,6 +8,8 @@ const os = require('os');
 const path = require('path');
 const OpenAI = require('openai');
 const Anthropic = require('@anthropic-ai/sdk');
+const ffmpeg = require('fluent-ffmpeg');
+ffmpeg.setFfmpegPath(require('ffmpeg-static'));
 
 const PORT = process.env.PORT || 3000;
 
@@ -39,10 +41,26 @@ const BROWSER_UA =
   'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/124.0.0.0 Safari/537.36';
 
 // ---------------------------------------------------------------------------
-// STEP 1 + 2 — Download the TikTok video via RapidAPI and transcribe it with
-// OpenAI Whisper. Whisper accepts mp4 directly, so no separate audio
-// extraction step is needed.
+// STEP 1 + 2 — Download the TikTok video via RapidAPI, strip it down to just
+// the audio track, and transcribe that with OpenAI Whisper. Whisper has a
+// hard 25MB file limit; sending the raw video (mostly picture data) can blow
+// past that on longer or higher-bitrate clips, so we extract audio-only
+// first — the same spoken content at a tiny fraction of the file size.
 // ---------------------------------------------------------------------------
+function extractAudio(inputPath, outputPath) {
+  return new Promise((resolve, reject) => {
+    ffmpeg(inputPath)
+      .noVideo()
+      .audioCodec('libmp3lame')
+      .audioBitrate('64k')
+      .audioChannels(1)
+      .format('mp3')
+      .on('error', reject)
+      .on('end', resolve)
+      .save(outputPath);
+  });
+}
+
 async function getTranscriptFromTikTok(tiktokUrl) {
   const rapidRes = await axios.get('https://tiktok-video-no-watermark2.p.rapidapi.com/', {
     params: { url: tiktokUrl },
@@ -65,19 +83,23 @@ async function getTranscriptFromTikTok(tiktokUrl) {
     headers: { 'User-Agent': BROWSER_UA },
   });
 
-  const tempPath = path.join(os.tmpdir(), `goviral-${Date.now()}-${Math.round(Math.random() * 1e6)}.mp4`);
-  fs.writeFileSync(tempPath, Buffer.from(videoRes.data));
+  const uid = `${Date.now()}-${Math.round(Math.random() * 1e6)}`;
+  const tempVideoPath = path.join(os.tmpdir(), `goviral-${uid}.mp4`);
+  const tempAudioPath = path.join(os.tmpdir(), `goviral-${uid}.mp3`);
+  fs.writeFileSync(tempVideoPath, Buffer.from(videoRes.data));
 
   try {
+    await extractAudio(tempVideoPath, tempAudioPath);
     const transcription = await openai.audio.transcriptions.create({
-      file: fs.createReadStream(tempPath),
+      file: fs.createReadStream(tempAudioPath),
       model: 'whisper-1',
     });
     const text = (transcription.text || '').trim();
     if (!text) throw new Error('Transcription came back empty.');
     return text;
   } finally {
-    fs.unlink(tempPath, () => {});
+    fs.unlink(tempVideoPath, () => {});
+    fs.unlink(tempAudioPath, () => {});
   }
 }
 
